@@ -1,36 +1,66 @@
-# �️ io-Guard: Agentic FinOps Orchestrator (v2.1)
+# 🛡️ io-Guard: Agentic FinOps Orchestrator (v3.2)
 
-> **"Bir sistemi izlemek yetmez; onu finansal olarak yönetmek gerekir."**
+> **"Gerçekçilik, Simülasyonda Değil, Fizik Kurallarındadır."**
 
-**io-Guard**, io.net ekosistemi için geliştirilmiş, otonom bir **FinOps ve Kaynak Yönetim Ekibidir**. Sıradan bir monitoring aracı değildir; yapay zeka ajanlarından oluşan bir "takım" gibi çalışır. Sorunları tespit eder, kök nedeni bulur, **para kaybını ($) hesaplar** ve otonom olarak aksiyon alır.
+**io-Guard v3.2**, io.net ekosistemi için tasarlanmış, **Termodinamik Fizik Motoru (DeepSim)** üzerine kurulu, ultra-gerçekçi bir **Otonom FinOps ve Kaynak Yönetim Ekibidir**.
 
-![Agentic Workflow](https://via.placeholder.com/1200x400.png?text=Watchdog+->+Diagnostician+->+Accountant+->+Enforcer)
-
----
-
-## 🧠 Nasıl Çalışır? (The Agentic Team)
-
-Sistem, **SOLID** prensiplerine göre tasarlanmış, "Chain of Responsibility" (Sorumluluk Zinciri) mimarisini kullanan 4 uzman ajandan oluşur:
-
-| Simge | Ajan | Rol | Görev |
-| :--- | :--- | :--- | :--- |
-| 👁️ | **Watchdog** | Gözcü | Binlerce veri noktasını tarar, anomaliyi (Latency > 0.5s, Temp > 80C) yakalar. |
-| 🩺 | **Diagnostician** | Doktor | Sorunun nedenini teşhis eder (Örn: *Thermal Throttling*, *Network Packet Loss*). |
-| 💸 | **Accountant** | Muhasebeci | Teknik hatayı paraya çevirir. *"Bu yavaşlık size saatte 2.50$ kaybettiriyor"* der. |
-| 🛡️ | **Enforcer** | İnfazcı | Kayıp eşik değerini (0.50$/saat) geçerse düğümü (Worker) otonom olarak kapatır. |
+Bu sürümde ("Hollywood Update"), Worker node'lar basit scriptler olmaktan çıkıp, fan devrinden termal macun sağlığına kadar simüle edilen **Dijital İkizlere (Digital Twins)** dönüşmüştür.
 
 ---
 
-## 🚀 Özellikler
+## 🌪️ DeepSim Physics Engine & Digital Twins
 
-*   **Otonom Karar Mekanizması:** İnsan müdahalesine gerek kalmadan "Tespit Et -> Hesapla -> Çöz" döngüsünü çalıştırır.
-*   **FinOps Odaklı (ROI):** Sadece teknik metrikleri değil, finansal etkiyi raporlar.
-*   **Chaos Testing Mode:** Sistemin dayanıklılığını test etmek için yapay sorunlar (Chaos) enjekte edilebilir.
-*   **Premium Mission Control:** Streamlit tabanlı, logları ve canlı finansal tasarrufu gösteren modern arayüz.
+Sistem artık sadece "Latency arttı" demez. Bir Worker'ın **neden** yavaşladığını fiziksel kanıtlarla bilir:
+
+| Bileşen | Simülasyon Özelliği | Etki |
+| :--- | :--- | :--- |
+| **Cooling** | ❄️ Thermodynamic Loop | Fan RPM, Isı (Temp), Soğutma Kapasitesi (Cooling Capacity). |
+| **Network** | 🌐 Integrity Check | Paket Kaybı, Jitter, Port Sağlığı. |
+| **Power** | ⚡ Efficiency | Güç kaçağı, Voltage droop ve ısıya etkisi. |
+| **Logic** | 🧠 Throttling | `Temp > 95°C` olduğunda sistem **Termal Throttling** uygular ve Clock Hızını düşürür. |
 
 ---
 
-## �️ Kurulum ve Çalıştırma
+## � The Physics-Aware Agent Swarm
+
+Ajanlar artık sadece log okumaz; **Fizik Kurallarını Denetler**. Loglarda bir anormallik gördüklerinde "Neden?" sorusunu sorarlar.
+
+| Simge | Ajan | Yeni Süper Gücü |
+| :--- | :--- | :--- |
+| 👁️ | **Watchdog** | **Physics Violation Detector**: "Fan %100 dönüyor ama ısı düşmüyor. Bu fizik kurallarına aykırı!" |
+| 🩺 | **Diagnostician** | **Root Cause Analysis**: "Aktif Soğutma Arızası (Active Cooling Failure) veya Termal Macun Kuruması (Thermal Paste Degraded)." |
+| 💸 | **Accountant** | **Thermal Waste Calc**: "Throttling yüzünden donanımın %40'ı ısıya gidiyor. Saatlik zarar: $6.40." |
+| 🛡️ | **Enforcer** | **Async Repair**: Sadece kapatmaz. Önce "Teknisyen" (API çağrısı) yollayıp parça değişimi dener. |
+
+---
+
+## 🔮 Agentic VRAM Oracle (Pre-Flight Check)
+
+IO.net ekosisteminde en çok karşılaşılan "Out of Memory (OOM)" hatalarını önlemek için geliştirdiğimiz **3 Aşamalı Kod Denetim Hattı**:
+
+1.  **🧩 Code Parser Agent**: Yüklenen Python eğitim kodunu (`train.py`) analiz eder. Model mimarisini (Llama-3, ResNet), batch size'ı ve optimizer'ı ayıklar.
+2.  **🧮 VRAM Calculator**: Donanım mühendisi gibi çalışır. Parametre sayısı ve veri tiplerine (fp16, bf16) göre gereken VRAM miktarını **GB cinsinden hesaplar**.
+3.  **💡 Optimization Advisor**: Mevcut donanım (örn. RTX 4090 24GB) yetersizse, *Gradient Accumulation*, *LoRA* veya *CPU Offloading* gibi teknik tavsiyeler verir.
+
+> **Sonuç:** "Deploy" butonuna basmadan önce kodunuzun çalışıp çalışmayacağını %99 doğrulukla bilirsiniz.
+
+---
+
+## � DeepSim Lab: Engineering Cockpit
+
+Yeni arayüzümüz, bir **Mühendislik Kokpiti** seviyesine çıkarıldı.
+
+*   **Real-Time Telemetry**: Isı, Fan Hızı, Clock Hızı anlık takip.
+*   **Health Bars**:
+    *   ❄️ **Fan Integrity**: Fan kabloları ve motor sağlığı.
+    *   🌐 **Link Quality**: Network portu fiziksel durumu.
+*   **Sabotage Tools (Mission Control):**
+    *   ✂️ **Cut Fan Wire**: Fanı fiziksel olarak devre dışı bırak. (Sonuç: Isı patlaması).
+    *   🔨 **Damage Port**: Network kablosunu zedele.
+
+---
+
+## 🛠️ Kurulum ve Çalıştırma
 
 ### Gereksinimler
 *   Docker & Docker Compose
@@ -38,7 +68,7 @@ Sistem, **SOLID** prensiplerine göre tasarlanmış, "Chain of Responsibility" (
 
 ### Hızlı Başlangıç
 
-1.  **Repo'yu Klonlayın ve Hazırlayın:**
+1.  **Repo'yu Klonlayın:**
     ```bash
     git clone https://github.com/aliozen0/sentinel-io.git
     cd sentinel-io 
@@ -53,45 +83,35 @@ Sistem, **SOLID** prensiplerine göre tasarlanmış, "Chain of Responsibility" (
     docker compose up --build -d
     ```
 
-4.  **Mission Control'e Bağlanın:**
+4.  **DeepSim Lab'e Bağlanın:**
     Tarayıcınızda [http://localhost:8501](http://localhost:8501) adresine gidin.
 
+### 🎮 Nasıl Oynanır? (Demo Senaryosu)
+
+1.  Arayüzden **"🛡️ ACTIVE WATCHDOG (Auto-Pilot)"** anahtarını açın.
+2.  Sol menüdeki **"✂️ Cut Fan Wire"** butonuna basarak bir Worker'ı sabote edin.
+3.  **Filmi İzleyin 🍿:**
+    *   Isı 90°C'yi geçecek.
+    *   **KERNEL ALERT** devreye girecek.
+    *   Ajanlar uyanacak, sorunu teşhis edecek (`Active Cooling Failure`).
+    *   Enforcer, teknisyen yollayıp fanı tamir edecek.
+    *   Isı tekrar normale dönecek.
+
 ---
 
-## 🔥 Chaos Mode (Şov Zamanı)
-
-Sistemin gerçek gücünü görmek için "sorunsuz" bir sistem izlemek yetmez. Sisteme kaos enjekte edin:
-
-1.  `docker-compose.yml` dosyasını açın.
-2.  `worker-3` servisi altındaki `CHAOS_MODE=False` değerini `True` yapın.
-3.  Değişikliği uygulayın: `docker compose up -d`.
-4.  Arayüzde **"RUN AGENTIC DIAGNOSTICS"** butonuna basın ve ajanların tepkisini izleyin!
-
----
-
-## � Proje Yapısı
+## 📂 Proje Yapısı
 
 ```plaintext
 io-guard/
-├── io-Guard-Autonomous-FinOps.yaml # io.net Workflow Blueprint (v2.1)
 ├── backend/
-│   ├── agents/                     # AI Ajanları (Watchdog, Enforcer vs.)
-│   ├── services/                   # Orchestrator (Yönetici Servis)
-│   ├── main.py                     # API Gateway
-│   └── logger.py                   # Merkezi Log Sistemi
-├── frontend/                       # Streamlit Dashboard (Mission Control)
-├── workers/                        # GPU Simülasyonu
-└── docker-compose.yml              # Altyapı
+│   ├── agents/                     # Physics-Aware AI Ajanları
+│   ├── services/orchestrator.py    # Async Agent Orchestrator
+│   ├── main.py                     # Kernel & Chaos API
+│   └── requirements.txt            # httpx, fastapi, openai
+├── frontend/                       # Streamlit DeepSim Lab
+├── workers/                        # Digital Twin Worker (worker.py)
+└── docker-compose.yml              # Cluster Tanımı
 ```
-
----
-
-## 🌟 Hackathon Uyumluluğu
-
-Bu proje **io.net Hackathon** katılım şartlarına tam uyumludur:
-- [x] **Agentic Workflow:** io.net Intelligence API ile çalışan çoklu ajan sistemi.
-- [x] **New Architecture:** Monolitik değil, mikroservis ve SOLID mimari.
-- [x] **FinOps & Utility:** Gerçek dünya problemi (GPU kaynak israfı) çözer.
 
 ---
 
