@@ -6,7 +6,7 @@ load_dotenv()
 
 BASE_URL = os.getenv("IO_BASE_URL", "https://api.intelligence.io.solutions/api/v1/")
 API_KEY = os.getenv("IO_API_KEY")
-MODEL_NAME = os.getenv("IO_MODEL_NAME", "io-intelligence-llama3-70b")
+MODEL_NAME = os.getenv("IO_MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 
 client = OpenAI(
     base_url=BASE_URL,
