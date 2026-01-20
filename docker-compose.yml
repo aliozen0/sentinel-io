@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -45,7 +43,7 @@ services:
     environment:
       - BACKEND_URL=http://backend:8000
       - WORKER_ID=worker-3
-      - CHAOS_MODE=False # Can be toggled at runtime if implemented via API or env var update
+      - CHAOS_MODE=True # Can be toggled at runtime if implemented via API or env var update
     networks:
       - io_guard_net
 

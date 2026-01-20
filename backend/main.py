@@ -1,11 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import re
-import json
 from state_manager import state
 from ai_client import ask_io_intelligence
+from services.orchestrator import AgentOrchestrator
+from models import AnalysisContext
+from logger import get_logger, LOG_FILE
+import os
 
-app = FastAPI(title="io-Guard Orchestrator")
+logger = get_logger("API")
+
+app = FastAPI(title="io-Guard Orchestrator v2.0")
+
+# Singleton Orchestrator (Dependency Injection pattern could be used here)
+orchestrator = AgentOrchestrator()
 
 class Telemetry(BaseModel):
     worker_id: str
@@ -45,36 +53,38 @@ async def predict_vram(file_content: str):
     response = ask_io_intelligence(system_prompt, user_prompt)
     return {"ai_response": response}
 
-@app.post("/analyze/stragglers")
-async def detect_stragglers():
+@app.post("/analyze/agentic-scan")
+async def run_agentic_scan():
     """
-    In-Flight Straggler Detection: Identifies slow nodes.
+    Triggers the v2.0 Agentic Workflow (Watchdog -> Diagnostician -> Accountant -> Enforcer).
     """
-    workers = state.get_all_workers()
-    active_workers_data = []
-    
-    for wid, wdata in workers.items():
-        if wdata["status"] == "Active":
-            # Get average latency from history
-            history = state.get_worker_history(wid)
-            if history:
-                avg_latency = sum(h["latency"] for h in history) / len(history)
-                active_workers_data.append(f"{wid}: {avg_latency:.4f}s avg latency")
-    
-    if not active_workers_data:
-        return {"result": "No active workers to analyze"}
+    try:
+        ctx: AnalysisContext = await orchestrator.run_scan()
+        
+        # Convert internal context to a frontend-friendly response
+        return {
+            "session_id": ctx.session_id,
+            "anomaly_detected": bool(ctx.anomalies_detected),
+            "logs": ctx.agent_logs,
+            "actions": ctx.actions_taken,
+            "financial_report": ctx.financial_report
+        }
+    except Exception as e:
+        logger.error(f"Agentic scan failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    system_prompt = "You are a distributed systems expert. Detect performance anomalies."
-    user_prompt = f"Here are the average latencies of active nodes: {', '.join(active_workers_data)}. Is there a statistically significant straggler? If yes, return the Worker ID. If no, return 'None'."
-    
-    response = ask_io_intelligence(system_prompt, user_prompt)
-    
-    # Simple parsing logic - in a real app, we'd want structured JSON response
-    # The prompt asks for Worker ID or None.
-    
-    for wid in workers.keys():
-        if wid in response and "None" not in response:
-             state.kill_worker(wid)
-             return {"result": f"Straggler detected and killed: {wid}", "ai_raw": response}
-             
-    return {"result": "No stragglers detected", "ai_raw": response}
+@app.get("/logs")
+async def get_system_logs(lines: int = 50):
+    """
+    Returns the last N lines of the system log.
+    """
+    if not os.path.exists(LOG_FILE):
+        return {"logs": ["Log file not initialized yet."]}
+        
+    try:
+        with open(LOG_FILE, "r") as f:
+            # Simple simulation of "tail" - reading all might be heavy for production but fine for MVP
+            all_lines = f.readlines()
+            return {"logs": all_lines[-lines:]}
+    except Exception as e:
+        return {"logs": [f"Error reading logs: {str(e)}"]}

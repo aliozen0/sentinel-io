@@ -1,0 +1,73 @@
+name: io-Guard-Autonomous-FinOps
+description: 'Autonomous multi-agent system for detecting GPU stragglers and calculating financial waste.'
+client_mode: false
+# Global ajan listesi boş bırakılır, ajanlar görevlerin içinde tanımlanır.
+agents: []
+tasks:
+  # --- ADIM 1: İZLEME ---
+  - task_id: task_monitor_logs
+    name: Monitor Logs
+    objective: Detect anomalies in the stream.
+    agents:
+      - name: watchdog_agent
+        instructions: You are a Monitoring Expert. Analyze the input logs. Look for latency > 0.5s or temperature > 80C. If found, output "ANOMALY_DETECTED" and the Node ID.
+        description: null
+        tools: []
+        memories: []
+        model_settings:
+          tool_choice: auto
+    task_metadata: {}
+    execution_metadata:
+      execution_mode: sequential
+      stages: []
+
+  # --- ADIM 2: TANI ---
+  - task_id: task_diagnose_error
+    name: Diagnose Error
+    objective: Find root cause of the anomaly.
+    agents:
+      - name: diagnostician_agent
+        instructions: 'You are a Hardware Engineer. Receive the anomaly report. Classify the error type into: [Network Congestion, Thermal Throttling, Memory Leak]. Output the Classification Label.'
+        description: null
+        tools: []
+        memories: []
+        model_settings:
+          tool_choice: auto
+    task_metadata: {}
+    execution_metadata:
+      execution_mode: sequential
+      stages: []
+
+  # --- ADIM 3: MALİYET HESABI ($) ---
+  - task_id: task_calc_waste
+    name: Calculate Financial Waste
+    objective: Quantify the loss in USD.
+    agents:
+      - name: accountant_agent
+        instructions: 'You are a FinOps Auditor. The hourly cost of a GPU is $2.50. Calculate the wasted money based on inefficiency. Formula: Cost * (Current_Latency / Ideal_Latency). Report the dollar amount.'
+        description: null
+        tools: []
+        memories: []
+        model_settings:
+          tool_choice: auto
+    task_metadata: {}
+    execution_metadata:
+      execution_mode: sequential
+      stages: []
+
+  # --- ADIM 4: AKSİYON ---
+  - task_id: task_take_action
+    name: Execute Action
+    objective: Kill the node if necessary.
+    agents:
+      - name: enforcer_agent
+        instructions: 'You are a System Administrator. If the wasted money is > $0.50, output "ACTION: KILL_NODE". Otherwise, output "ACTION: MONITOR".'
+        description: null
+        tools: []
+        memories: []
+        model_settings:
+          tool_choice: auto
+    task_metadata: {}
+    execution_metadata:
+      execution_mode: sequential
+      stages: []
