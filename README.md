@@ -40,8 +40,8 @@ Sistem, **SOLID** prensiplerine göre tasarlanmış, "Chain of Responsibility" (
 
 1.  **Repo'yu Klonlayın ve Hazırlayın:**
     ```bash
-    git clone https://github.com/your-username/io-guard.git
-    cd io-guard
+    git clone https://github.com/aliozen0/sentinel-io.git
+    cd sentinel-io 
     cp .env.example .env
     ```
 
