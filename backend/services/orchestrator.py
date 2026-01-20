@@ -45,7 +45,9 @@ class AgentOrchestrator:
                     worker_id=wid,
                     latency=data.get('latency', 0),
                     temperature=data.get('temperature', 0),
-                    gpu_util=data.get('gpu_util', 0)
+                    gpu_util=data.get('gpu_util', 0),
+                    fan_speed=data.get('fan_speed', 0),
+                    clock_speed=data.get('clock_speed', 100)
                 )
 
         ctx = AnalysisContext(

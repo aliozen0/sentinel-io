@@ -7,6 +7,8 @@ class TelemetryData(BaseModel):
     latency: float
     temperature: float
     gpu_util: float
+    fan_speed: float = 0.0
+    clock_speed: float = 100.0
     timestamp: datetime = Field(default_factory=datetime.now)
 
 class AgentResponse(BaseModel):

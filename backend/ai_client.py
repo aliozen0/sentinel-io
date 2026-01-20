@@ -13,12 +13,14 @@ client = OpenAI(
     api_key=API_KEY
 )
 
+import asyncio
+
 def ask_io_intelligence(system_prompt: str, user_prompt: str):
     """
-    Sends a request to the io.net Intelligence API.
+    Sends a request to the io.net Intelligence API (Sync Wrapper).
+    Warning: This blocks! Prefer strict usage in async wrappers or threads.
     """
     if not API_KEY or "sk-io-" in API_KEY and len(API_KEY) < 20: 
-         # Simple check to see if it's still the placeholder
          return "Error: IO_API_KEY is not set or is invalid in .env"
 
     try:
@@ -33,3 +35,9 @@ def ask_io_intelligence(system_prompt: str, user_prompt: str):
         return response.choices[0].message.content
     except Exception as e:
         return f"AI Error: {str(e)}"
+
+async def ask_io_intelligence_async(system_prompt: str, user_prompt: str):
+    """
+    Async wrapper to prevent blocking the FastAPI Event Loop.
+    """
+    return await asyncio.to_thread(ask_io_intelligence, system_prompt, user_prompt)

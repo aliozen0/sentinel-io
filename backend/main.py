@@ -25,6 +25,9 @@ class Telemetry(BaseModel):
     latency: float
     temperature: float
     gpu_util: float
+    fan_speed: float = 0.0
+    clock_speed: float = 100.0
+    health: dict = {}
     timestamp: datetime = Field(default_factory=datetime.now)
 
 class LogEvent(BaseModel):
@@ -46,31 +49,61 @@ async def receive_telemetry(data: Telemetry):
     if data.worker_id not in chaos_state_db:
         chaos_state_db[data.worker_id] = False
         
+    # Critical Physics Check (Kernel Level)
+    if data.temperature > 90.0:
+        logger.warning(f"⚠️ KERNEL ALERT: {data.worker_id} overhead (Temp: {data.temperature:.1f}C). Advise Agent Scan.")
+        
     return {"status": "received"}
 
 # --- v3.0 Chaos Endpoints ---
+# --- v3.0 Chaos Endpoints ---
 @app.post("/chaos/inject/{worker_id}")
-async def inject_chaos(worker_id: str):
-    """Activates Chaos Mode (Sabotage) for a specific worker."""
-    chaos_state_db[worker_id] = True
-    logger.warning(f"🔥 SABOTAGE! Chaos Mode ACTIVATED for {worker_id}")
-    return {"status": "chaos_injected", "worker_id": worker_id}
+async def inject_chaos(worker_id: str, payload: dict):
+    """
+    Activates Component-Level Sabotage.
+    Payload: {"component": "COOLING", "severity": 0.8} (Sets health to 1.0 - severity)
+             OR {"component": "COOLING", "health": 0.0} (Direct health set)
+    """
+    health_val = 0.0
+    if "health" in payload:
+        health_val = payload["health"]
+    elif "severity" in payload:
+        health_val = max(0.0, 1.0 - payload["severity"])
+        
+    component = payload.get("component", "COOLING").upper()
+    
+    # Store command in DB for worker to pick up
+    chaos_state_db[worker_id] = {
+        "sabotage": {
+            "component": component,
+            "health": health_val
+        }
+    }
+    
+    logger.warning(f"🔥 SABOTAGE! {component} on {worker_id} set to health {health_val}")
+    return {"status": "sabotage_sent", "worker_id": worker_id, "component": component}
 
-@app.post("/chaos/reset/{worker_id}")
-async def reset_chaos(worker_id: str):
-    """Deactivates Chaos Mode (Recovery) for a specific worker."""
-    chaos_state_db[worker_id] = False
-    logger.info(f"🟢 RECOVERY. Chaos Mode DEACTIVATED for {worker_id}")
-    return {"status": "chaos_reset", "worker_id": worker_id}
+@app.post("/chaos/repair/{worker_id}")
+async def repair_worker(worker_id: str):
+    """Restores all components to 100% health."""
+    chaos_state_db[worker_id] = {
+        "sabotage": {
+            "component": "ALL_RESTORE",
+            "health": 1.0
+        }
+    }
+    logger.info(f"🟢 REPAIR sent for {worker_id}")
+    return {"status": "repair_sent", "worker_id": worker_id}
 
 @app.get("/command/{worker_id}")
 async def get_worker_command(worker_id: str):
     """
-    Worker polls this endpoint to see if it should be in Chaos Mode.
-    Returns: {"chaos": bool}
+    Worker polls this endpoint to receive sabotage/repair commands.
+    Once consumed, we clear the command or keep it persistent?
+    For persistent state (like 'Cut Wire'), we keep sending it until Repaired.
     """
-    is_chaos = chaos_state_db.get(worker_id, False)
-    return {"chaos": is_chaos}
+    command = chaos_state_db.get(worker_id, {})
+    return command
 
 @app.post("/log-event")
 async def receive_log_event(event: LogEvent):

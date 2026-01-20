@@ -1,7 +1,7 @@
 import json
 from .base import BaseAgent
 from models import AnalysisContext, VramAnalysisContext
-from ai_client import ask_io_intelligence
+from ai_client import ask_io_intelligence, ask_io_intelligence_async
 from state_manager import state
 from logger import get_logger
 
@@ -9,40 +9,44 @@ logger = get_logger("Agents")
 
 class WatchdogAgent(BaseAgent):
     """
-    Step 1: Monitors telemetry for hardcoded thresholds (Latency > 0.5s, Temp > 85C).
+    Step 1: Monitors telemetry for PHYSICS VIOLATIONS.
+    e.g. Temp > 90C OR (Fan > 90% AND Temp increasing) OR (Latency > 0.5s AND Low Load)
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
         # 1. Get Telemetry Snapshot
-        # Convert Pydantic models to dicts for clear JSON serialization
         active_workers = {k: v.dict() for k, v in ctx.telemetry_snapshot.items()}
         
-        # 2. AI Analysis
-        # Flatten data for easier AI parsing
+        # 2. Prepare Data for AI (Flattened)
         worker_list = []
         for wid, data in active_workers.items():
             worker_list.append({
                 "id": wid,
-                "lat": round(data.get("latency", 0), 2),
-                "temp": round(data.get("temperature", 0), 1)
+                "lat": round(data.get("latency", 0), 3),
+                "temp": round(data.get("temperature", 0), 1),
+                "fan": round(data.get("fan_speed", 0), 1),
+                "clock": round(data.get("clock_speed", 100), 1),
+                "load": round(data.get("gpu_util", 0), 1)
             })
             
+        if not worker_list:
+            return {}, "No workers to analyze."
+
         system_prompt = (
-            "You are a Critical System Monitor. Review the list of worker metrics. "
-            "Rules:"
-            "1. IF lat > 0.5 OR temp > 80.0 -> ANOMALY."
-            "2. IF lat > 3.0 -> CRITICAL ANOMALY."
-            "Return ONLY JSON: {\"anomalies\": [{\"node_id\": \"...\", \"reason\": \"High Latency (X.Xs)\"}]}. "
-            "If no anomalies, return {\"anomalies\": []}."
+            "You are a Physics Engine Watchdog. Analyze worker telemetry for anomalies. "
+            "PHYSICS RULES:"
+            "1. High Temp (>90C) is CRITICAL."
+            "2. High Fan (>90%) with High Temp (>85C) means Cooling Failure."
+            "3. Low Clock (<90%) means Thermal Throttling."
+            "4. Latency > 1.0s is High."
+            "Return ONLY JSON: {\"anomalies\": [{\"node_id\": \"...\", \"reason\": \"Thermal Throttling (Clock 50%)\"}]}. "
         )
-        user_prompt = f"Metrics: {json.dumps(worker_list)}"
+        user_prompt = f"Telemetry: {json.dumps(worker_list)}"
         
-        logger.info(f"Watchdog: Analyzing {len(worker_list)} workers. Data: {user_prompt}")
-        response_text = ask_io_intelligence(system_prompt, user_prompt)
-        logger.debug(f"Watchdog: AI Raw Response: {response_text[:100]}...")
+        logger.info(f"Watchdog: Scanning {len(worker_list)} nodes for physics violations...")
+        response_text = await ask_io_intelligence_async(system_prompt, user_prompt)
         
         # 3. Parse Response
         try:
-            # Extract JSON from potential markdown
             if "```json" in response_text:
                 response_text = response_text.split("```json")[1].split("```")[0].strip()
             elif "```" in response_text:
@@ -54,16 +58,16 @@ class WatchdogAgent(BaseAgent):
             ctx.anomalies_detected = anomalies
             
             if anomalies:
-                return {"anomalies": anomalies}, f"Watchdog detected {len(anomalies)} anomalies."
+                return {"anomalies": anomalies}, f"Watchdog detected {len(anomalies)} physics violations."
             else:
-                return {"anomalies": []}, "System healthy. No anomalies."
+                return {"anomalies": []}, "All systems within physics tolerances."
                 
         except Exception as e:
-            return {}, f"Watchdog AI parsing failed: {e}. Raw: {response_text}"
+            return {}, f"Watchdog failed: {e}"
 
 class DiagnosticianAgent(BaseAgent):
     """
-    Step 2: Diagnoses the ROOT CAUSE of the anomaly (e.g., Thermal Throttling, Network).
+    Step 2: Diagnoses COMPONENT FAILURE based on Physics Data.
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
         if not ctx.anomalies_detected:
@@ -75,99 +79,99 @@ class DiagnosticianAgent(BaseAgent):
             node_id = anomaly.get("node_id")
             reason = anomaly.get("reason")
             
-            # Fetch historical context from State Manager for better diagnosis
-            history = state.get_worker_history(node_id)
-            avg_lat = sum(h["latency"] for h in history) / len(history) if history else 0
+            # Fetch full telemetry for this node
+            tdata = ctx.telemetry_snapshot.get(node_id)
+            if not tdata: continue
             
-            system_prompt = "You are a Hardware Engineer. Receive the anomaly report."
-            user_prompt = (
-                f"Node: {node_id}, Issue: {reason}. "
-                f"Avg Latency (30s): {avg_lat:.4f}s. "
-                "Classify the error type into: [Network Congestion, Thermal Throttling, Memory Leak]. "
-                "Output the Classification Label."
+            metrics = f"Temp: {tdata.temperature}C, Fan: {tdata.fan_speed}%, Clock: {tdata.clock_speed}%, Latency: {tdata.latency}s"
+            
+            system_prompt = (
+                "You are a Hardware Engineer. Diagnose the Root Cause. "
+                "scenarios:"
+                "- Temp High + Fan High + Clock Low = 'Active Cooling Failure' (Fan working but not cooling -> Dust/Paste issue?)"
+                "- Temp High + Fan Low = 'Fan Motor Failure' (Fan not spinning)."
+                "- Latency High + Temp Normal = 'Network Congestion'."
+                "Output ONLY the Root Cause Name from: [Fan Motor Failure, Thermal Paste Degraded, Network Congestion, Unknown]."
             )
             
-            cause = ask_io_intelligence(system_prompt, user_prompt)
-            logger.info(f"Diagnostician: Node {node_id} issue '{reason}' diagnosed as '{cause}'")
+            cause = await ask_io_intelligence_async(system_prompt, f"Node: {node_id}, Issue: {reason}. Metrics: {metrics}")
             diagnoses.append({"node_id": node_id, "classification": cause})
         
-        # Store simplistic single diagnosis for context, or full list in data
         ctx.diagnosis = diagnoses[0]["classification"] if diagnoses else "Unknown"
-        
-        return {"diagnoses": diagnoses}, f"Diagnosed issues: {[d['classification'] for d in diagnoses]}"
+        return {"diagnoses": diagnoses}, f"Diagnosed: {[d['classification'] for d in diagnoses]}"
 
 class AccountantAgent(BaseAgent):
     """
-    Step 3: Calculates FINANCIAL WASTE ($) based on inefficiency.
+    Step 3: Calculates THERMAL WASTE ($).
+    If Clock Speed is < 100%, we are paying 100% price for partial performance.
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
         if not ctx.anomalies_detected:
-            return {}, "No ineffiency to audit."
+            return {}, "No waste."
 
-        HOURLY_COST_GPU = 2.50 # $2.50/hr for an A100 equivalent
-        IDEAL_LATENCY = 0.10   # 100ms
-        
+        HOURLY_COST_GPU = 2.50
         waste_report = []
         total_waste = 0.0
         
         for anomaly in ctx.anomalies_detected:
             node_id = anomaly.get("node_id")
-            # Get current latency from snapshot
-            current_lat = ctx.telemetry_snapshot[node_id].get("latency", 0.1)
+            tdata = ctx.telemetry_snapshot.get(node_id)
+            if not tdata: continue
             
-            # Calculate Inefficiency Ratio
-            # If latency represents processing time per token/request
-            if current_lat > IDEAL_LATENCY:
-                inefficiency = (current_lat - IDEAL_LATENCY) / current_lat
-                waste_usd = HOURLY_COST_GPU * inefficiency
-            else:
-                waste_usd = 0
+            # Throttling Calculation
+            # 100% clock = 0 waste
+            # 50% clock = 50% waste
+            efficiency = tdata.clock_speed / 100.0
+            waste_ratio = 1.0 - efficiency
+            waste_usd = HOURLY_COST_GPU * waste_ratio
             
-            total_waste += waste_usd
-            waste_report.append({
-                "node_id": node_id,
-                "current_latency": current_lat,
-                "hourly_waste_usd": waste_usd
-            })
-
-        # AI Storytelling
-        system_prompt = "You are a FinOps Auditor. The hourly cost of a GPU is $2.50. Calculate the wasted money based on inefficiency. Formula: Cost * (Current_Latency / Ideal_Latency). Report the dollar amount."
-        user_prompt = f"Waste Report: {json.dumps(waste_report)}. Write a punchy financial impact statement."
-        
-        story = ask_io_intelligence(system_prompt, user_prompt)
-        
-        logger.warning(f"Accountant: Total waste calculated: ${total_waste}/hr. Story generated.")
-        
+            if waste_usd > 0.01:
+                waste_report.append({
+                    "node_id": node_id,
+                    "clock_speed": tdata.clock_speed,
+                    "hourly_waste_usd": waste_usd
+                })
+                total_waste += waste_usd
+            
         ctx.financial_report = {
             "total_waste_hourly": total_waste,
             "details": waste_report,
-            "story": story
+            "story": f"Thermal throttling is costing ${total_waste:.2f}/hr in lost compute."
         }
         
-        return ctx.financial_report, story
+        return ctx.financial_report, ctx.financial_report["story"]
 
 class EnforcerAgent(BaseAgent):
     """
-    Step 4: Takes ACTION (Kill Node) if waste exceeds threshold.
+    Step 4: DIGITAL REPAIR. 
+    Tries to repair components via API first. If that fails (or logic dictates), then maybe escalate (not impl here).
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
-        if not ctx.financial_report:
-            return {}, "No financial report to act on."
-
-        THRESHOLD_USD = 0.50 # Updated from 1.0 to 0.50 per blueprint
+        if not ctx.anomalies_detected:
+            return {}, "No actions needed."
+            
         actions = []
+        # Use httpx for async requests
+        import httpx
+        BACKEND_URL = "http://localhost:8000" # Internal reference
         
-        details = ctx.financial_report.get("details", [])
+        # Iterate over diagnoses
+        # Ensure we have diagnoses in context, if not, use anomalies
+        targets = ctx.anomalies_detected
         
-        for item in details:
-            if item["hourly_waste_usd"] > THRESHOLD_USD:
-                node_id = item["node_id"]
-                logger.warning(f"Enforcer: EXECUTION ORDER. Killing {node_id} due to financial waste ${item['hourly_waste_usd']}/hr")
-                state.kill_worker(node_id) # Execute Kill
-                actions.append(f"KILLED {node_id} (Wasting ${item['hourly_waste_usd']:.2f}/hr)")
-            else:
-                logger.info(f"Enforcer: Monitoring {item['node_id']} (Waste acceptable)")
-                actions.append(f"BSERVED {item['node_id']} (Waste below threshold)")
+        async with httpx.AsyncClient() as client:
+            for tgt in targets:
+                node_id = tgt.get("node_id")
+                # Try to infer repair action from diagnosis if available
+                # For this demo, we assume "Fan Motor Failure" -> Repair
+                
+                # Send REPAIR command
+                try:
+                    # We use the generic repair endpoint which acts like a "Technician Visit"
+                    await client.post(f"{BACKEND_URL}/chaos/repair/{node_id}", timeout=2.0)
+                    actions.append(f"DISPATCHED TECHNICIAN (Repair) to {node_id}")
+                except Exception as e:
+                    actions.append(f"FAILED to contact repair dispatch for {node_id}: {e}")
 
         ctx.actions_taken = actions
         return {"actions": actions}, ", ".join(actions) if actions else "No actions needed."
@@ -185,7 +189,7 @@ class CodeParserAgent(BaseAgent):
         )
         user_prompt = f"Code: {ctx.code_snippet[:1500]}..."
         
-        response = ask_io_intelligence(system_prompt, user_prompt)
+        response = await ask_io_intelligence_async(system_prompt, user_prompt)
         
         try:
              # Extract JSON logic
@@ -217,7 +221,7 @@ class VRAMCalculatorAgent(BaseAgent):
         )
         user_prompt = f"Metadata: {json.dumps(ctx.parsed_metadata)}"
         
-        response = ask_io_intelligence(system_prompt, user_prompt)
+        response = await ask_io_intelligence_async(system_prompt, user_prompt)
         
         try:
             # Extract JSON logic
@@ -255,6 +259,6 @@ class OptimizationAdvisorAgent(BaseAgent):
             )
             user_prompt = "Provide advice."
             
-            advice = ask_io_intelligence(system_prompt, user_prompt)
+            advice = await ask_io_intelligence_async(system_prompt, user_prompt)
             ctx.optimization_story = advice
             return {"advice": advice}, "Optimization needed."
