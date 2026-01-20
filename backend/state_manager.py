@@ -29,7 +29,7 @@ class StateManager:
         # Update statuses based on last_seen (e.g. timeout > 5s = Offline)
         now = datetime.now()
         for worker_id, info in self.workers.items():
-            if (now - info["last_seen"]).total_seconds() > 5:
+            if (now - info["last_seen"]).total_seconds() > 30:
                 info["status"] = "Offline"
         return self.workers
 

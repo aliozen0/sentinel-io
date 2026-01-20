@@ -46,50 +46,55 @@ st.sidebar.markdown(f"<h1 style='color: #00ce7c;'>${st.session_state['total_savi
 st.sidebar.caption("Cumulative waste prevented by agents")
 
 # Main Dashboard
-tab1, tab2 = st.tabs(["🚀 Mission Control", "📜 System Logs"])
+# Main Dashboard
+tab1, tab2, tab3 = st.tabs(["🚀 Mission Control", "🤖 VRAM Oracle (v3.0)", "📜 System Logs"])
 
 with tab1:
-    col1, col2 = st.columns([1, 1])
+    st.markdown("### 🕹️ Dynamic Chaos Engine")
+    
+    # 1. Fetch & Display Workers with Chaos Controls
+    try:
+        response = requests.get(f"{BACKEND_URL}/status", timeout=2)
+        workers = response.json()
+        
+        if workers:
+            cols = st.columns(len(workers))
+            for idx, (wid, details) in enumerate(workers.items()):
+                with cols[idx]:
+                    # Chaos Status Check
+                    cmd_res = requests.get(f"{BACKEND_URL}/command/{wid}")
+                    is_chaos = cmd_res.json().get("chaos", False) if cmd_res.status_code == 200 else False
+                    
+                    status_color = "red" if is_chaos else "green"
+                    st.markdown(f"**{wid.upper()}**")
+                    st.markdown(f"Status: <span style='color:{status_color}'>{'SABOTAGED' if is_chaos else 'Normal'}</span>", unsafe_allow_html=True)
+                    
+                    # Telemetry Sparklines (Mock or Real)
+                    lat = details['data'].get('latency', 0)
+                    st.metric("Latency", f"{lat:.2f}s", delta="-High" if is_chaos else "Normal", delta_color="inverse")
+                    
+                    # Controls
+                    if is_chaos:
+                        if st.button("🟢 RECOVER", key=f"rec_{wid}", use_container_width=True):
+                            requests.post(f"{BACKEND_URL}/chaos/reset/{wid}")
+                            st.rerun()
+                    else:
+                        if st.button("🔴 SABOTAGE", key=f"sab_{wid}", use_container_width=True):
+                            requests.post(f"{BACKEND_URL}/chaos/inject/{wid}")
+                            st.rerun()
+        else:
+            st.warning("No workers connected.")
+            
+    except Exception as e:
+        st.error(f"System Error: {e}")
 
+    st.markdown("---")
+    
+    # Existing Agentic Scan UI
+    col1, col2 = st.columns([1, 2])
+    
     with col1:
-        st.subheader("📡 Cluster Telemetry")
-        # Fetch status
-        try:
-            response = requests.get(f"{BACKEND_URL}/status", timeout=5)
-            workers = response.json()
-            
-            # Metrics
-            active_count = sum(1 for w in workers.values() if w['status'] == 'Active')
-            total_workers = len(workers)
-            st.metric("Active Nodes", f"{active_count}/{total_workers}")
-            
-            # DataFrame
-            if workers:
-                df_data = []
-                for wid, details in workers.items():
-                    data = details.get('data', {})
-                    df_data.append({
-                        "Worker ID": wid,
-                        "Status": details.get('status'),
-                        "Latency (s)": f"{data.get('latency', 0):.4f}",
-                        "Temp (°C)": f"{data.get('temperature', 0):.1f}",
-                        "GPU Util (%)": data.get('gpu_util', 0)
-                    })
-                df = pd.DataFrame(df_data)
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.info("No active workers detected.")
-
-        except Exception as e:
-            st.error(f"Connection Error: {e}")
-            workers = {}
-
-    with col2:
-        st.subheader("🤖 Autonomous Agent Team")
-        
-        st.info("System is monitored by 4 specialist agents.")
-        
-        # Agentic Scan Button
+        st.subheader("🤖 Agent Team")
         if st.button("RUN AGENTIC DIAGNOSTICS", use_container_width=True, type="primary"):
             status_text = st.empty()
             progress_bar = st.progress(0)
@@ -98,9 +103,8 @@ with tab1:
                 # 1. Watchdog
                 status_text.markdown("**👁️ Watchdog:** Scanning telemetry...")
                 progress_bar.progress(25)
-                time.sleep(0.5) # UI Effect
+                time.sleep(0.5) 
                 
-                # Call Backend for Full Scan (simulating steps for UI drama, but backend runs atomic)
                 res = requests.post(f"{BACKEND_URL}/analyze/agentic-scan")
                 
                 if res.status_code == 200:
@@ -124,30 +128,26 @@ with tab1:
                     
                     status_text.success("Scan Complete!")
                     
-                    # Display "Story" from logs
-                    st.markdown("### 📝 Mission Report")
-                    
-                    for log in logs:
-                        agent = log['agent_id'].capitalize()
-                        msg = log['message']
-                        icon = "🔹"
-                        if agent == "Watchdog": icon = "👁️"
-                        elif agent == "Diagnostician": icon = "🩺"
-                        elif agent == "Accountant": icon = "💸"
-                        elif agent == "Enforcer": icon = "🛡️"
-                        
-                        with st.expander(f"{icon} {agent} Report", expanded=True):
-                            st.write(msg)
-                            if agent == "Accountant" and "data" in log:
-                                data = log["data"]
-                                if "story" in data:
-                                    st.success(f"**Insight:** {data['story']}")
-                                if "total_waste_hourly" in data:
-                                    waste = data["total_waste_hourly"]
-                                    # Update session state savings logic (Mock calculation for savings)
-                                    # In reality, savings = waste prevented * hours
-                                    st.session_state['total_savings'] += (waste * 720) # Monthly projection
-                                    st.rerun()
+                    # Display "Story"
+                    with col2:
+                        st.markdown("### 📝 Mission Report")
+                        for log in logs:
+                            agent = log['agent_id'].capitalize()
+                            msg = log['message']
+                            icon = "🔹"
+                            if agent == "Watchdog": icon = "👁️"
+                            elif agent == "Diagnostician": icon = "🩺"
+                            elif agent == "Accountant": icon = "💸"
+                            elif agent == "Enforcer": icon = "🛡️"
+                            
+                            with st.expander(f"{icon} {agent}", expanded=True):
+                                st.write(msg)
+                                if agent == "Accountant" and "data" in log:
+                                     data = log["data"]
+                                     if "total_waste_hourly" in data:
+                                         waste = data["total_waste_hourly"]
+                                         st.session_state['total_savings'] += (waste * 720) 
+                                         st.rerun()
 
                 else:
                     st.error(f"Agent Failure: {res.text}")
@@ -155,36 +155,90 @@ with tab1:
             except Exception as e:
                 st.error(f"Workflow Failed: {e}")
 
-    # Live Charts
-    if workers:
-        st.markdown("### 📈 Live Performance")
-        df_chart = pd.DataFrame([
-            {"Worker": wid, "Latency": details['data'].get('latency', 0)} 
-            for wid, details in workers.items() if details['status'] == 'Active'
-        ])
-        if not df_chart.empty:
-            fig = px.bar(df_chart, x="Worker", y="Latency", color="Latency", 
-                        color_continuous_scale=["#00ce7c", "#ff4b4b"])
-            st.plotly_chart(fig, use_container_width=True)
-
 with tab2:
-    st.header("📜 Live System Logs")
-    st.caption("Real-time trace of agent activities, IO Intelligence calls, and decisions.")
+    st.header("🔮 Agentic VRAM Oracle")
+    st.markdown("Upload your training script (`.py`). Our **Hardware Architect Agents** will analyze it.")
     
-    if st.button("Refresh Logs"):
-        # Just rerun to fetch new logs
-        pass
+    # v3.1: File Uploader Support
+    uploaded_file = st.file_uploader("Upload Python Script", type=["py"])
+    
+    if uploaded_file is not None:
+        # Read file content
+        file_content = uploaded_file.getvalue().decode("utf-8")
+        st.code(file_content[:500] + "...", language="python")
+        st.caption("Preview")
+        
+        if st.button("Start AI Analysis"):
+            status_box = st.status("🧠 Agents working...", expanded=True)
+            try:
+                status_box.write("📤 Uploading code to backend...")
+                # Increased timeout to 60s because AI takes time
+                res = requests.post(
+                    f"{BACKEND_URL}/analyze/vram-agentic", 
+                    params={"file_content": file_content},
+                    timeout=120 
+                )
+                
+                if res.status_code == 200:
+                    data = res.json()
+                    status_box.update(label="✅ Analysis Complete!", state="complete", expanded=False)
+                    
+                    metadata = data.get("metadata", {})
+                    vram = data.get("vram", {})
+                    advice = data.get("advice", "")
+                    logs = data.get("logs", [])
+                    
+                    # 1. Visualization
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Model", metadata.get("model", "Unknown"))
+                    c2.metric("Precision", metadata.get("precision", "Unknown"))
+                    c3.metric("Batch Size", metadata.get("batch_size", "Unknown"))
+                    c4.metric("Optimizer", metadata.get("optimizer", "Unknown"))
+                    
+                    st.divider()
+                    
+                    # 2. VRAM Result
+                    total_gb = vram.get("total_gb", 0)
+                    st.markdown(f"<h1 style='text-align: center; color: #00ce7c;'>{total_gb} GB VRAM Required</h1>", unsafe_allow_html=True)
+                    
+                    if advice:
+                         st.info(f"💡 **Optimization Advice:** {advice}")
+                         
+                    # 3. Agent Thought Process (Chain of Thought)
+                    st.subheader("🕵️ Chain of Thought (Backend Logs)")
+                    for log in logs:
+                        agent = log['agent_id'].upper()
+                        msg = log['message']
+                        # Color code agents
+                        if "PARSER" in agent: icon = "🧩"
+                        elif "CALCULATOR" in agent: icon = "🧮"
+                        elif "ADVISOR" in agent: icon = "💡"
+                        else: icon = "🤖"
+                        
+                        with st.chat_message(name=agent, avatar=icon):
+                            st.write(f"**{agent}**: {msg}")
+                            
+                else:
+                    status_box.update(label="❌ Analysis Failed", state="error")
+                    st.error(f"Backend Error: {res.text}")
+                    
+            except requests.exceptions.Timeout:
+                status_box.update(label="⚠️ Timeout", state="error")
+                st.error("The AI agents are taking too long (>60s). Please try again or check System Logs.")
+            except Exception as e:
+                status_box.update(label="❌ Error", state="error")
+                st.error(f"Request Error: {e}")
 
+with tab3:
+    st.header("📜 Live System Logs")
+    if st.button("Refresh Logs"): pass
     try:
         log_res = requests.get(f"{BACKEND_URL}/logs?lines=100")
         if log_res.status_code == 200:
-            logs = log_res.json().get("logs", [])
-            log_text = "".join(logs)
-            st.code(log_text, language="log")
-        else:
-            st.error("Could not fetch logs.")
-    except Exception as e:
-        st.error(f"Log fetch error: {e}")
+            st.code("".join(log_res.json().get("logs", [])), language="log")
+    except:
+        st.error("Log fetch failed.")
+
 
 time.sleep(refresh_rate)
 st.rerun()

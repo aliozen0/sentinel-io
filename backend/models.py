@@ -17,7 +17,7 @@ class AgentResponse(BaseModel):
 
 class AnalysisContext(BaseModel):
     """
-    Context object passed along the Chain of Responsibility.
+    Context object passed along the Chain of Responsibility (FinOps Scan).
     """
     session_id: str
     telemetry_snapshot: Dict[str, TelemetryData]
@@ -27,6 +27,21 @@ class AnalysisContext(BaseModel):
     actions_taken: List[str] = []
     
     # Trace of agent executions
+    agent_logs: List[AgentResponse] = []
+
+    def log_agent_response(self, response: AgentResponse):
+        self.agent_logs.append(response)
+
+class VramAnalysisContext(BaseModel):
+    """
+    Context object for the VRAM Analysis Pipeline.
+    """
+    session_id: str
+    code_snippet: str
+    parsed_metadata: Optional[Dict[str, Any]] = None
+    vram_usage: Optional[Dict[str, Any]] = None
+    optimization_story: Optional[str] = None
+    
     agent_logs: List[AgentResponse] = []
 
     def log_agent_response(self, response: AgentResponse):

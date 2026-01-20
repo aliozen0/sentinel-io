@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import re
+from datetime import datetime
 from state_manager import state
 from ai_client import ask_io_intelligence
 from services.orchestrator import AgentOrchestrator
-from models import AnalysisContext
+from models import AnalysisContext, VramAnalysisContext
 from logger import get_logger, LOG_FILE
 import os
 
@@ -15,11 +16,24 @@ app = FastAPI(title="io-Guard Orchestrator v2.0")
 # Singleton Orchestrator (Dependency Injection pattern could be used here)
 orchestrator = AgentOrchestrator()
 
+# --- v3.0 Dynamic Chaos Engine ---
+# In-Memory Database for Chaos State
+chaos_state_db = {} 
+
 class Telemetry(BaseModel):
     worker_id: str
     latency: float
     temperature: float
     gpu_util: float
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class LogEvent(BaseModel):
+    """
+    Schema for remote logging from workers.
+    """
+    service: str
+    level: str
+    message: str
 
 @app.post("/telemetry")
 async def receive_telemetry(data: Telemetry):
@@ -27,7 +41,54 @@ async def receive_telemetry(data: Telemetry):
     Receives telemetry data from workers.
     """
     state.update_worker_status(data.worker_id, data.dict())
+    
+    # Ensure worker is in chaos db (default False if new)
+    if data.worker_id not in chaos_state_db:
+        chaos_state_db[data.worker_id] = False
+        
     return {"status": "received"}
+
+# --- v3.0 Chaos Endpoints ---
+@app.post("/chaos/inject/{worker_id}")
+async def inject_chaos(worker_id: str):
+    """Activates Chaos Mode (Sabotage) for a specific worker."""
+    chaos_state_db[worker_id] = True
+    logger.warning(f"🔥 SABOTAGE! Chaos Mode ACTIVATED for {worker_id}")
+    return {"status": "chaos_injected", "worker_id": worker_id}
+
+@app.post("/chaos/reset/{worker_id}")
+async def reset_chaos(worker_id: str):
+    """Deactivates Chaos Mode (Recovery) for a specific worker."""
+    chaos_state_db[worker_id] = False
+    logger.info(f"🟢 RECOVERY. Chaos Mode DEACTIVATED for {worker_id}")
+    return {"status": "chaos_reset", "worker_id": worker_id}
+
+@app.get("/command/{worker_id}")
+async def get_worker_command(worker_id: str):
+    """
+    Worker polls this endpoint to see if it should be in Chaos Mode.
+    Returns: {"chaos": bool}
+    """
+    is_chaos = chaos_state_db.get(worker_id, False)
+    return {"chaos": is_chaos}
+
+@app.post("/log-event")
+async def receive_log_event(event: LogEvent):
+    """
+    Centralized logging endpoint. Workers send logs here.
+    """
+    msg = f"[{event.service.upper()}] {event.message}"
+    
+    if event.level.lower() == "error":
+        logger.error(msg)
+    elif event.level.lower() == "warning":
+        logger.warning(msg)
+    else:
+        logger.info(msg)
+        
+    return {"status": "logged"}
+
+# ----------------------------
 
 @app.get("/status")
 async def get_system_status():
@@ -52,6 +113,25 @@ async def predict_vram(file_content: str):
     
     response = ask_io_intelligence(system_prompt, user_prompt)
     return {"ai_response": response}
+
+@app.post("/analyze/vram-agentic")
+async def analyze_vram_agentic(file_content: str):
+    """
+    v3.0 Agentic VRAM Oracle: 3-Stage Pipeline (Parser -> Calculator -> Advisor).
+    """
+    try:
+        ctx: VramAnalysisContext = await orchestrator.run_vram_analysis(file_content)
+        
+        return {
+            "session_id": ctx.session_id,
+            "metadata": ctx.parsed_metadata,
+            "vram": ctx.vram_usage,
+            "advice": ctx.optimization_story,
+            "logs": ctx.agent_logs
+        }
+    except Exception as e:
+        logger.error(f"VRAM Analysis Failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/agentic-scan")
 async def run_agentic_scan():

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from models import AnalysisContext, AgentResponse
-from typing import Optional
+from models import AnalysisContext, VramAnalysisContext, AgentResponse
+from typing import Optional, Union
 from logger import get_logger
 
 logger = get_logger("BaseAgent")
@@ -12,7 +12,7 @@ class BaseAgent(ABC):
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
 
-    async def execute(self, ctx: AnalysisContext) -> AnalysisContext:
+    async def execute(self, ctx: Union[AnalysisContext, VramAnalysisContext]) -> Union[AnalysisContext, VramAnalysisContext]:
         """
         Template method that executes the agent's logic and logs the result.
         """
@@ -44,7 +44,7 @@ class BaseAgent(ABC):
         return ctx
 
     @abstractmethod
-    async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
+    async def _process(self, ctx: Union[AnalysisContext, VramAnalysisContext]) -> tuple[dict, str]:
         """
         Abstract method to be implemented by concrete agents.
         Returns: (data_dict, human_readable_message)
