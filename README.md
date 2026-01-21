@@ -29,8 +29,8 @@ Ajanlar artık sadece log okumaz; **Fizik Kurallarını Denetler**. Loglarda bir
 | :--- | :--- | :--- |
 | 👁️ | **Watchdog** | **Physics Violation Detector**: "Fan %100 dönüyor ama ısı düşmüyor. Bu fizik kurallarına aykırı!" |
 | 🩺 | **Diagnostician** | **Root Cause Analysis**: "Aktif Soğutma Arızası (Active Cooling Failure) veya Termal Macun Kuruması (Thermal Paste Degraded)." |
-| 💸 | **Accountant** | **Thermal Waste Calc**: "Throttling yüzünden donanımın %40'ı ısıya gidiyor. Saatlik zarar: $6.40." |
-| 🛡️ | **Enforcer** | **Async Repair**: Sadece kapatmaz. Önce "Teknisyen" (API çağrısı) yollayıp parça değişimi dener. |
+| 💸 | **Accountant (CFO AI)** | **LLM-Based FinOps**: Sadece hesap yapmaz. İşletme risklerini (Risk Premium) ve enerji israfını analiz eden bir **CFO** gibi karar verir. |
+| 🛡️ | **Enforcer (SRE Manager)** | **Autonomous Decision Maker**: Kör bir tamirci değildir. CFO ve Mühendis raporlarını okur; "Tamir et", "Kapat" veya "Görmezden Gel" kararını veren **Müdür yapay zekadır**. |
 
 ---
 
@@ -46,11 +46,13 @@ IO.net ekosisteminde en çok karşılaşılan "Out of Memory (OOM)" hatalarını
 
 ---
 
-## � DeepSim Lab: Engineering Cockpit
-
-Yeni arayüzümüz, bir **Mühendislik Kokpiti** seviyesine çıkarıldı.
-
-*   **Real-Time Telemetry**: Isı, Fan Hızı, Clock Hızı anlık takip.
+## 💻 DeepSim Lab: Autonomous Cockpit
+ 
+ Yeni arayüz, insan müdahalesi gerektirmeyen **"Zero-Click"** bir deneyim sunar.
+ 
+ *   **🧠 Neural Stream (Yeni):** Ajanların ne düşündüğünü, tartıştığını ve karar verdiğini gösteren canlı "Düşünce Akışı".
+ *   **⚡ Global Event Bus:** Ajanlar arka planda, tarayıcı kapalıyken bile çalışır ve kararlarını merkezi sisteme bildirir.
+ *   **Real-Time Telemetry**: Isı, Fan Hızı, Clock Hızı anlık takip.
 *   **Health Bars**:
     *   ❄️ **Fan Integrity**: Fan kabloları ve motor sağlığı.
     *   🌐 **Link Quality**: Network portu fiziksel durumu.

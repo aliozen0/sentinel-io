@@ -3,6 +3,7 @@ from agents.implementations import (
     WatchdogAgent, DiagnosticianAgent, AccountantAgent, EnforcerAgent,
     CodeParserAgent, VRAMCalculatorAgent, OptimizationAdvisorAgent
 )
+from agents.oracle import OracleAgent
 from models import AnalysisContext, TelemetryData, VramAnalysisContext
 from state_manager import state
 import uuid
@@ -19,6 +20,7 @@ class AgentOrchestrator:
         # v2.0 FinOps Pipeline
         self.pipeline: list[BaseAgent] = [
             WatchdogAgent("watchdog"),
+            OracleAgent("oracle"), # The Seer comes after Watchdog (triggers on anomalies)
             DiagnosticianAgent("diagnostician"),
             AccountantAgent("accountant"),
             EnforcerAgent("enforcer")

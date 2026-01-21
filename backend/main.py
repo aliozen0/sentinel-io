@@ -186,6 +186,13 @@ async def run_agentic_scan():
         logger.error(f"Agentic scan failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/analyze/logs")
+async def get_agent_logs(limit: int = 50):
+    """
+    Returns the global agent event log (Neural Stream).
+    """
+    return {"logs": state.get_agent_logs(limit)}
+
 @app.get("/logs")
 async def get_system_logs(lines: int = 50):
     """

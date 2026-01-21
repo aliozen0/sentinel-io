@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from models import AnalysisContext, VramAnalysisContext, AgentResponse
 from typing import Optional, Union
 from logger import get_logger
+from state_manager import state # Global State
 
 logger = get_logger("BaseAgent")
 
@@ -17,7 +18,7 @@ class BaseAgent(ABC):
         Template method that executes the agent's logic and logs the result.
         """
         logger.info(f"⚡ [{self.agent_id.upper()}] Activation started. Context ID: {ctx.session_id}")
-        print(f"[{self.agent_id}] specific processing started...")
+        
         try:
             # Delegate specific logic to concrete classes
             result_data, message = await self._process(ctx)
@@ -29,7 +30,17 @@ class BaseAgent(ABC):
                 data=result_data,
                 message=message
             )
+            
+            # 1. Log to Context (Pipeline flow)
             ctx.log_agent_response(response)
+            
+            # 2. Log to GLOBAL State (Frontend Visibility)
+            state.add_agent_log({
+                "agent": self.agent_id.capitalize(), # Normalize for UI
+                "message": message,
+                "data": result_data,
+                 # Timestamp added by add_agent_log if missing
+            })
             
         except Exception as e:
             logger.error(f"[{self.agent_id.upper()}] CRITICAL FAILURE: {str(e)}", exc_info=True)

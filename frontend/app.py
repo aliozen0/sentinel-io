@@ -122,73 +122,169 @@ with tab1:
     except Exception as e:
         st.error(f"System Error: {e}")
 
+    # --- 🧪 SIMULATION SCENARIOS (Verification UI) ---
     st.markdown("---")
+    st.subheader("🧪 Simulation Scenarios")
     
-    # Agentic Scan UI (Updated for Physics)
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.subheader("🕵️ Physics-Aware Agent Team")
-        if st.button("RUN DEEP DIAGNOSTICS", use_container_width=True, type="primary"):
-            status_text = st.empty()
-            progress_bar = st.progress(0)
+    with st.expander("🌪️ Scenario 1: The 'Slow Burn' (Dust Accumulation)", expanded=False):
+        st.markdown("""
+        **Objective:** Trigger "The Oracle" by simulating hidden dust buildup.
+        **Transparency Protocol:**
+        1. We will inject a `DUST_FACTOR` of 0.8 into the physics engine.
+        2. You will see the **API Response** confirming the sabotage.
+        3. We will wait 15s, printing real-time thermodynamics logs.
+        4. We will send the `Time-Series CSV` to the Oracle Agent.
+        """)
+        
+        if st.button("▶️ START LIVE EXPERIMENT", type="primary", use_container_width=True):
+            console = st.empty()
+            log_container = st.container()
             
-            try:
-                # 1. Watchdog
-                status_text.markdown("**👁️ Watchdog:** Measuring thermodynamic deviations...")
-                progress_bar.progress(25)
-                time.sleep(0.5) 
-                
-                res = requests.post(f"{BACKEND_URL}/analyze/agentic-scan")
-                
-                if res.status_code == 200:
-                    result = res.json()
-                    logs = result.get("logs", [])
-                    
-                    # 2. Diagnostician
-                    status_text.markdown("**🩺 Diagnostician:** Correlating physical anomalies...")
-                    progress_bar.progress(50)
-                    time.sleep(0.5)
-                    
-                    # 3. Accountant
-                    status_text.markdown("**💸 Accountant:** Calculating thermal waste ($)...")
-                    progress_bar.progress(75)
-                    time.sleep(0.5)
-                    
-                    # 4. Enforcer
-                    status_text.markdown("**🛡️ Enforcer:** Dispatching digital repair technicians...")
-                    progress_bar.progress(100)
-                    time.sleep(0.5)
-                    
-                    status_text.success("Diagnostics Complete!")
-                    
-                    # Display "Story"
-                    with col2:
-                        st.markdown("### 📝 Mission Report")
-                        for log in logs:
-                            agent = log['agent_id'].capitalize()
-                            msg = log['message']
-                            icon = "🔹"
-                            if agent == "Watchdog": icon = "👁️"
-                            elif agent == "Diagnostician": icon = "🩺"
-                            elif agent == "Accountant": icon = "💸"
-                            elif agent == "Enforcer": icon = "🛡️"
-                            
-                            with st.expander(f"{icon} {agent}", expanded=True):
-                                st.write(msg)
-                                if agent == "Accountant" and "data" in log:
-                                     data = log["data"]
-                                     if "total_waste_hourly" in data:
-                                         waste = data["total_waste_hourly"]
-                                         st.session_state['total_savings'] += (waste * 1.0) # Assume we save 1 hour of waste
-                                         st.metric("Waste Identified", f"${waste:.2f}/hr")
-                                         st.rerun()
+            def log_step(msg):
+                with log_container:
+                    st.markdown(f"```bash\n> {msg}\n```")
+                    time.sleep(0.3)
 
+            try:
+                # 1. Select Target
+                console.info("🔍 Scanning Cluster for active nodes...")
+                workers_res = requests.get(f"{BACKEND_URL}/status")
+                workers_map = workers_res.json()
+                if not workers_map:
+                    console.error("❌ No workers found!")
+                    st.stop()
+                
+                target_id = list(workers_map.keys())[0]
+                console.success(f"🎯 Target Acquired: {target_id}")
+                log_step(f"TARGET_LOCK: {target_id}")
+                
+                # 2. Inject Sabotage
+                console.warning("🌪️ Injecting DUST SABOTAGE payload...")
+                res = requests.post(f"{BACKEND_URL}/chaos/inject/{target_id}", 
+                             json={"component": "DUST", "health": 0.8})
+                log_step(f"POST /chaos/inject/{target_id} payload={{dust: 0.8}} -> {res.status_code}")
+                
+                # 3. Wait for Physics
+                console.info("⏳ Collecting Thermodynamics Data (15s)...")
+                prog = console.progress(0)
+                
+                metrics_placeholder = st.empty()
+                
+                for i in range(15):
+                    # Fetch real-time data to show it's real
+                    w_res = requests.get(f"{BACKEND_URL}/status")
+                    if w_res.status_code == 200:
+                        curr_data = w_res.json()[target_id]['data']
+                        temp = curr_data['temperature']
+                        fan = curr_data['fan_speed']
+                        metrics_placeholder.caption(f"Physics State: Temp={temp:.1f}°C | Fan={fan:.1f}%")
+                    
+                    time.sleep(1)
+                    prog.progress((i+1)/15)
+                
+                metrics_placeholder.empty()
+
+                # 4. Trigger Scan
+                console.info("👁️ transmitting Time-Series Vector to Oracle AI...")
+                log_step("POST /analyze/agentic-scan (Payload: Last 60s Telemetry)")
+                
+                scan_res = requests.post(f"{BACKEND_URL}/analyze/agentic-scan")
+                
+                if scan_res.status_code == 200:
+                    console.success("✅ Analysis Complete! Oracle has spoken.")
+                    log_step("RESPONSE 200 OK: Oracle Prediction Received.")
+                    time.sleep(1)
+                    st.rerun() 
                 else:
-                    st.error(f"Agent Failure: {res.text}")
+                    console.error(f"❌ Scan Failed: {scan_res.text}")
                     
             except Exception as e:
-                st.error(f"Workflow Failed: {e}")
+                console.error(f"Execution Error: {str(e)}")
+
+    # -----------------------------------------------
+
+
+    st.markdown("---")
+    
+    # --- 🧠 AGENT NEURAL STREAM (Automated & Visual) ---
+    st.markdown("---")
+    st.subheader("🧠 io Intelligence Neural Stream")
+    
+    # Initialize Session State for Logs
+    if "agent_history" not in st.session_state:
+        st.session_state["agent_history"] = []
+        
+    # Layout: Live Feed (Left) vs Meaningful Insights (Right)
+    col_feed, col_insights = st.columns([1, 1])
+    
+    with col_feed:
+        st.markdown("#### � Live Agent Protocol Feed")
+        feed_container = st.container(height=400)
+        
+        # Display History (Reverse Order)
+        for log in reversed(st.session_state["agent_history"]):
+            with feed_container:
+                 agent = log['agent']
+                 msg = log['message']
+                 ts = log.get('timestamp', '')
+                 icon = "🔹"
+                 color = "gray"
+                 
+                 if agent == "Watchdog": icon, color = "👁️", "#3dd5e3"
+                 elif agent == "Oracle": icon, color = "🔮", "#9d00ff"
+                 elif agent == "Diagnostician": icon, color = "🩺", "#ffcc00"
+                 elif agent == "Accountant": icon, color = "💸", "#00ce7c"
+                 elif agent == "Enforcer": icon, color = "🛡️", "#ff4b4b"
+                 
+                 st.markdown(f"""
+                 <div style='border-left: 3px solid {color}; padding-left: 10px; margin-bottom: 10px;'>
+                    <small style='color: #888;'>{ts}</small><br>
+                    <strong>{icon} {agent}</strong>: {msg}
+                 </div>
+                 """, unsafe_allow_html=True)
+
+    with col_insights:
+        st.markdown("#### 💡 Key Decisions & Actions")
+        # Filter for "Actionable" or "Important" logs
+        important_logs = [l for l in st.session_state["agent_history"] 
+                          if l['agent'] in ["Enforcer", "Oracle", "Diagnostician"] 
+                          or "violation" in l['message']]
+                          
+        if not important_logs:
+            st.info("System Stable. Agents standing by.")
+        else:
+            for log in reversed(important_logs[-5:]): # Show last 5 major events
+                agent = log['agent']
+                msg = log['message']
+                # Card Style
+                st.info(f"**{agent}**: {msg}", icon="⚡") 
+                
+                # Special Visuals for specific agents
+                if agent == "Oracle" and "data" in log:
+                     data = log['data']
+                     if "predictions" in data:
+                         preds = data["predictions"]
+                         if preds: 
+                             with st.expander("🔮 View Prediction Evidence"):
+                                 st.json(preds)
+                                 
+                if agent == "Enforcer":
+                    st.toast(f"Action Taken: {msg}")
+
+    # AUTO-PILOT LOGIC (Background)
+    # Always poll logs to update the Neural Stream (even if we didn't trigger the scan)
+    try:
+        # 1. Fetch Global Agent Logs
+        log_res = requests.get(f"{BACKEND_URL}/analyze/logs?limit=50", timeout=2)
+        if log_res.status_code == 200:
+            st.session_state["agent_history"] = log_res.json().get("logs", [])
+            
+        # 2. Auto-Pilot Trigger (Only if enabled)
+        if auto_pilot:
+             requests.post(f"{BACKEND_URL}/analyze/agentic-scan", timeout=2)
+             
+    except Exception:
+        pass # Fail silently in background loops
 
 with tab2:
     st.header("🔮 Agentic VRAM Oracle (v3.0 - Preserved)")
@@ -263,13 +359,6 @@ with tab3:
 
 
 
-# Auto-Pilot Logic
-if auto_pilot:
-    try:
-        # Run scan every refresh cycle (simplified)
-        requests.post(f"{BACKEND_URL}/analyze/agentic-scan", timeout=5)
-    except Exception:
-        pass # Don't block UI
-
+# Refresh Loop
 time.sleep(refresh_rate)
 st.rerun()

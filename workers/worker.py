@@ -34,6 +34,7 @@ class DigitalTwin:
         self.temp = 45.0
         self.clock_speed = 100.0 # Percentage 0-100
         self.fan_rpm = 0.0 # Percentage 0-100
+        self.dust_factor = 0.0 # 0.0 = Clean, 1.0 = Clogged (Acts as insulation & cooling blocker)
         
         # Physics Constants
         self.throttle_temp = 95.0
@@ -42,22 +43,28 @@ class DigitalTwin:
         
     def update_physics(self, load_percent: float):
         """
-        Runs the Thermodynamic Loop.
-        DeltaTemp = HeatGen - Dissipation
+        Runs the Thermodynamics Loop (Enterprise Edition).
+        Includes Exponential Heat & Dust Insulation.
         """
-        # 1. Calculate Heat Generation
-        # Base heat from load + Leakage from poor power health
-        heat_gen = (load_percent / 100.0) * self.heat_gen_base
-        heat_gen += (1.0 - self.health_power) * 2.0 # Power inefficiency generates heat
+        # 1. Calculate Heat Generation (Exponential scaling with Load)
+        # Power = Load^1.2 (Non-linear heat gen)
+        load_factor = (load_percent / 100.0) ** 1.2
+        heat_gen = load_factor * self.heat_gen_base
+        
+        # Power Inefficiency & Dust Insulation
+        # Dust acts as a blanket, trapping heat inside
+        heat_gen += (1.0 - self.health_power) * 2.0 
+        heat_gen *= (1.0 + self.dust_factor) # Dust increases retained heat
         
         # 2. Calculate Cooling (Dissipation)
         # Fan curve: Ramp up as temp exceeds 50C
-        target_fan = min(100.0, max(0.0, (self.temp - 50.0) * 2.5))
+        target_fan = min(100.0, max(0.0, (self.temp - 50.0) * 3.0)) # More aggressive curve
         self.fan_rpm = target_fan 
         
-        # Effective Cooling depends on Fan RPM and Fan Health
-        # If fan wire is cut (health=0), cooling is 0 even if RPM is 100
-        cooling_effective = (self.fan_rpm / 100.0) * self.health_cooling * self.cooling_power_max
+        # Effective Cooling depends on Fan RPM, Fan Health AND Dust
+        # Dust reduces cooling efficiency drastically
+        effective_fan_health = self.health_cooling * (1.0 - self.dust_factor)
+        cooling_effective = (self.fan_rpm / 100.0) * effective_fan_health * self.cooling_power_max
         
         # 3. Apply Temperature Change
         self.temp += heat_gen - cooling_effective
@@ -109,10 +116,12 @@ def work_loop():
                         if component == "COOLING": twin.health_cooling = val
                         elif component == "NETWORK": twin.health_network = val
                         elif component == "POWER": twin.health_power = val
+                        elif component == "DUST": twin.dust_factor = val # New sabotage type
                         elif component == "ALL_RESTORE": 
                             twin.health_cooling = 1.0
                             twin.health_network = 1.0
                             twin.health_power = 1.0
+                            twin.dust_factor = 0.0
                             
             except Exception:
                 pass # Backend offline?

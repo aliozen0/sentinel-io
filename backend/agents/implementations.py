@@ -106,75 +106,135 @@ class AccountantAgent(BaseAgent):
     If Clock Speed is < 100%, we are paying 100% price for partial performance.
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
-        if not ctx.anomalies_detected:
-            return {}, "No waste."
-
-        HOURLY_COST_GPU = 2.50
-        waste_report = []
-        total_waste = 0.0
+        from ai_client import ask_io_intelligence_async
+        import json
         
+        if not ctx.anomalies_detected:
+            return {}, "No financial waste detected."
+
+        # Prepare Data for the CFO Agent
+        anomalies_context = []
         for anomaly in ctx.anomalies_detected:
             node_id = anomaly.get("node_id")
             tdata = ctx.telemetry_snapshot.get(node_id)
-            if not tdata: continue
-            
-            # Throttling Calculation
-            # 100% clock = 0 waste
-            # 50% clock = 50% waste
-            efficiency = tdata.clock_speed / 100.0
-            waste_ratio = 1.0 - efficiency
-            waste_usd = HOURLY_COST_GPU * waste_ratio
-            
-            if waste_usd > 0.01:
-                waste_report.append({
-                    "node_id": node_id,
-                    "clock_speed": tdata.clock_speed,
-                    "hourly_waste_usd": waste_usd
+            if tdata:
+                anomalies_context.append({
+                    "id": node_id,
+                    "issue": anomaly.get("reason"),
+                    "telemetry": {
+                        "temp": tdata.temperature,
+                        "clock": tdata.clock_speed,
+                        "fan": tdata.fan_speed,
+                        "gpu_load": tdata.gpu_util
+                    }
                 })
-                total_waste += waste_usd
-            
-        ctx.financial_report = {
-            "total_waste_hourly": total_waste,
-            "details": waste_report,
-            "story": f"Thermal throttling is costing ${total_waste:.2f}/hr in lost compute."
-        }
+
+        # IMPROVED: Agentic Financial prompting
+        system_prompt = (
+            "You are the CFO AI (Chief Financial Officer). "
+            "Analyze the technical anomalies below and calculate financial impact. "
+            "COST MODEL:\n"
+            "- COMPUTE_LOSS: $2.50/hr per node if Clock < 100%.\n"
+            "- POWER_WASTE: $0.50/hr per node if Fan > 90% (Inefficient).\n"
+            "- RISK_PREMIUM: $15.00/hr per node if Temp > 90C (Meltdown Risk).\n\n"
+            "INSTRUCTIONS:\n"
+            "1. Calculate total waste for each node based on the model.\n"
+            "2. Sum up to 'total_waste_hourly'.\n"
+            "3. Write a SHORT, punchy executive summary (1 sentence).\n"
+            "OUTPUT ONLY JSON: {\"total_waste_hourly\": float, \"details\": list, \"story\": string}"
+        )
         
-        return ctx.financial_report, ctx.financial_report["story"]
+        user_prompt = f"Anomalies Detected:\n{json.dumps(anomalies_context, indent=2)}"
+        
+        try:
+            response_text = await ask_io_intelligence_async(system_prompt, user_prompt)
+            
+            # JSON Parsing Logic
+            json_str = response_text
+            if "```json" in response_text:
+                json_str = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                json_str = response_text.split("```")[1].split("```")[0].strip()
+                
+            report = json.loads(json_str)
+            ctx.financial_report = report
+            return report, report.get("story", "Financial Analysis Complete.")
+            
+        except Exception as e:
+            return {}, f"CFO Analysis Failed: {e}"
 
 class EnforcerAgent(BaseAgent):
     """
-    Step 4: DIGITAL REPAIR. 
-    Tries to repair components via API first. If that fails (or logic dictates), then maybe escalate (not impl here).
+    Step 4: SITE RELIABILITY MANAGER (The Boss).
+    Decides on the Final Action based on:
+    1. Diagnosis (Hardware Engineer)
+    2. Financial Impact (CFO)
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
-        if not ctx.anomalies_detected:
-            return {}, "No actions needed."
-            
-        actions = []
-        # Use httpx for async requests
+        from ai_client import ask_io_intelligence_async
         import httpx
-        BACKEND_URL = "http://localhost:8000" # Internal reference
+        import json
         
-        # Iterate over diagnoses
-        # Ensure we have diagnoses in context, if not, use anomalies
-        targets = ctx.anomalies_detected
+        if not ctx.anomalies_detected:
+            return {}, "System Healthy. No intervention required."
+            
+        # Gather Intelligence
+        intelligence_brief = {
+            "diagnoses": ctx.diagnosis, # List or string
+            "financial_report": ctx.financial_report, # Dict from CFO
+            "anomalies": ctx.anomalies_detected
+        }
         
-        async with httpx.AsyncClient() as client:
-            for tgt in targets:
-                node_id = tgt.get("node_id")
-                # Try to infer repair action from diagnosis if available
-                # For this demo, we assume "Fan Motor Failure" -> Repair
+        # SRE Manager Prompt
+        system_prompt = (
+            "You are the SRE Manager (Site Reliability Engineering). "
+            "make a FINAL DECISION based on the technical and financial reports. "
+            "AVAILABLE ACTIONS:\n"
+            "- REPAIR: Dispatch technician (Cost: $50 fixed). Use for 'Fan Failure', 'Thermal Paste' if Waste < $500.\n"
+            "- RESTART: Remote reboot (Cost: $0, Downtime: 10s). Use for 'Software Glitch', 'Unknown', or low-cost throttling.\n"
+            "- ISOLATE: Kill the node (Cost: $0, Capacity Loss). Use if Waste > $500/hr (Bleeding cash) OR Critical Meltdown Risk.\n"
+            "- IGNORE: Do nothing. Use if waste is negligible (< $1.00).\n\n"
+            "OUTPUT JSON: {\"node_id\": \"...\", \"action\": \"REPAIR\"|\"RESTART\"|\"ISOLATE\"|\"IGNORE\", \"reasoning\": \"...\"}"
+        )
+        
+        user_prompt = f"Intelligence Brief:\n{json.dumps(intelligence_brief, indent=2)}"
+        
+        try:
+            response_text = await ask_io_intelligence_async(system_prompt, user_prompt)
+            
+            # JSON Parsing
+            json_str = response_text
+            if "```json" in response_text:
+                json_str = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                json_str = response_text.split("```")[1].split("```")[0].strip()
                 
-                # Send REPAIR command
-                try:
-                    # We use the generic repair endpoint which acts like a "Technician Visit"
-                    await client.post(f"{BACKEND_URL}/chaos/repair/{node_id}", timeout=2.0)
-                    actions.append(f"DISPATCHED TECHNICIAN (Repair) to {node_id}")
-                except Exception as e:
-                    actions.append(f"FAILED to contact repair dispatch for {node_id}: {e}")
-
-        ctx.actions_taken = actions
-        return {"actions": actions}, ", ".join(actions) if actions else "No actions needed."
+            decision = json.loads(json_str)
+            action = decision.get("action", "IGNORE").upper()
+            target_node = decision.get("node_id", intelligence_brief["anomalies"][0]["node_id"])
+            reason = decision.get("reasoning", "No reason provided.")
+            
+            # Execute Action
+            BACKEND_URL = "http://localhost:8000"
+            exec_log = f"DECISION: {action} on {target_node}. Reason: {reason}"
+            
+            async with httpx.AsyncClient() as client:
+                if action == "REPAIR":
+                    await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}")
+                elif action == "ISOLATE":
+                    # In a real app this might stop the container. For now, maybe just log?
+                    # Or we implement a 'kill' endpoint. Let's assume repair for now effectively 'resets' state
+                    # But ideally we'd have a /stop endpoint.
+                    await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}") # Placeholder for Kill
+                elif action == "RESTART":
+                    # Restart logic (simulate by repair for demo simplicity, or add specific endpoint)
+                    await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}") 
+            
+            ctx.actions_taken.append(exec_log)
+            return {"decision": decision}, exec_log
+            
+        except Exception as e:
+            return {}, f"SRE Manager Panic: {e}"
 
 # --- v3.0 Agentic VRAM Oracle Agents ---
 
