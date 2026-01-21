@@ -3,5 +3,12 @@ uvicorn
 openai
 python-dotenv
 pydantic
+pydantic-settings
 requests
 httpx
+paramiko
+supabase
+redis
+asyncpg
+greenlet
+websockets

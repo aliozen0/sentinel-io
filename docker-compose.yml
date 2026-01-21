@@ -12,38 +12,12 @@ services:
   frontend:
     build: ./frontend
     container_name: io_guard_frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     ports:
-      - "8501:8501"
+      - "3000:3000"
     depends_on:
       - backend
-    networks:
-      - io_guard_net
-
-  worker-1:
-    build: ./workers
-    container_name: io_guard_worker_1
-    environment:
-      - BACKEND_URL=http://backend:8000
-      - WORKER_ID=worker-1
-    networks:
-      - io_guard_net
-
-  worker-2:
-    build: ./workers
-    container_name: io_guard_worker_2
-    environment:
-      - BACKEND_URL=http://backend:8000
-      - WORKER_ID=worker-2
-    networks:
-      - io_guard_net
-
-  worker-3:
-    build: ./workers
-    container_name: io_guard_worker_3
-    environment:
-      - BACKEND_URL=http://backend:8000
-      - WORKER_ID=worker-3
-      - CHAOS_MODE=True # Can be toggled at runtime if implemented via API or env var update
     networks:
       - io_guard_net
 

@@ -1,10 +1,17 @@
-FROM python:3.9-slim
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Force cache bust
+ENV REBUILD_FLAG=1
 
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Copy source
 COPY . .
 
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Development Mode (No Build Step)
+EXPOSE 3000
+CMD ["npm", "run", "dev"]

@@ -1,145 +1,106 @@
-# 🛡️ io-Guard: Agentic FinOps Orchestrator (v4.0)
+# io-Guard: Otonom Hesaplama Aracısı
 
-> **"Gerçekçilik ile Zeka Birleşti: Hibrit Operasyon Dönemi"**
+**io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) basit sorular soran bir sistemdir. Kümeleme (clustering), donanım seçimi ve ortam yapılandırmasının karmaşıklığını soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-**io-Guard v4.0**, io.net ekosistemi için tasarlanmış, **Termodinamik Fizik Motoru (DeepSim)** ve **Hibrit Yapay Zeka (Hybrid-AI)** üzerine kurulu, otonom bir FinOps yönetim platformdur.
-
-Bu sürümde ("Intelligence Update"), sistem sadece hata olduğunda değil, **verimlilik düştüğünde de** müdahale eden proaktif bir yapıya kavuşmuştur.
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-MVP%20v1.0-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ---
 
-## 🧠 v4.0: Hibrit Zeka & Beyin İzi (Brain Trace)
+## 🚀 Vizyon
 
-Artık ajanların ne düşündüğünü tahmin etmenize gerek yok. **Şeffaflık Modu** ile her kararın arkasındaki mantığı (Prompt/Response) canlı izleyebilirsiniz.
+Merkeziyetsiz Fiziksel Altyapı Ağları (DePIN) çağında, hesaplama gücü boldur ancak parçalıdır. **io-Guard**, aşağıdaki işlemleri gerçekleştiren yapay zeka ajanlarını kullanarak sizin akıllı aracınız (broker) olarak hizmet eder:
+1.  **Denetle (Audit):** Kodunuzu kaynak gereksinimleri için analiz eder.
+2.  **Avla (Snipe):** En iyi GPU fırsatlarını yakalamak için piyasayı tarar.
+3.  **Tasarla (Architect):** Mükemmel Docker ortamını kurgular.
+4.  **Yürüt (Execute):** Eğitim sürecini otonom olarak başlatır ve izler.
 
-| Özellik | Açıklama |
-| :--- | :--- |
-| **Hybrid Watchdog** | Sadece "Sıcak/Soğuk" demez. Her node için **Efficiency Index (0.0 - 1.0)** hesaplar. Matematiksel tespiti, LLM muhakemesiyle birleştirir. |
-| **Brain Trace** 🧠 | LLM'e giden komutları ve gelen cevapları arayüzde **"Düşünce Balonu"** olarak gösterir. Hataları ve kararları şeffaflaştırır. |
-| **Preemptive Failover** | Enforcer Ajanı, cihaz bozulmadan **önce** müdahale eder. Verimlilik %70'in altına düştüğünde, kullanıcı deneyimini korumak için "Sağlıklı Yedek" ile "Yorgun İşçiyi" değiştirir. |
+## 🧠 Çekirdek Ajanlar (Backend)
 
----
+Sistem, **DeepSeek-V3** (via `io Intelligence`) tarafından desteklenen Mikro-Ajan Mimarisi ile çalışır:
 
-## 🌪️ DeepSim Physics Engine & Digital Twins
-
-Sistem, donanımları yüzeysel değil, fiziksel parametrelerle simüle eder:
-
-| Bileşen | Simülasyon Özelliği | Etki |
+| Ajan | Rol | İşlev |
 | :--- | :--- | :--- |
-| **Efficiency (WEI)** | 📊 Weighted Efficiency Index | Clock Hızı, Isı ve Log-Latency verilerinden oluşan canlı karne notu. |
-| **Cooling** | ❄️ Thermodynamic Loop | Fan RPM, Isı (Temp), Soğutma Kapasitesi. |
-| **Logic** | 🧠 Throttling | Verimlilik düştüğünde (%60 altı) sistem otomatik olarak "Performans Kaybı" alarmı verir. |
+| **🕵️ The Auditor (Denetçi)** | Statik Analiz | Python kodunu ayrıştırarak VRAM (GB) ve kütüphane gereksinimlerini (PyTorch/TF) tahmin eder. |
+| **🎯 The Sniper (Keskin Nişancı)** | Piyasa Arbitrajı | `Skor = (Fiyat/Performans) + Güvenilirlik` formülüyle en iyi düğümleri (node) bulur. |
+| **🏗️ The Architect (Mimar)** | Ortam Yöneticisi | Kod gereksinimlerini deterministik olarak optimize edilmiş Docker imajlarıyla eşleştirir (örn. `ray-project/ray-ml`). |
+| **🤖 The Assistant (Asistan)** | Mantık Çekirdeği | Teknik destek ve rehberlik için arayüze entegre edilmiş genel amaçlı bir yapay zeka sohbet botu. |
+
+## 💻 Arayüz (Frontend)
+
+**Next.js 14**, **Tailwind CSS** ve **Shadcn/UI** ile geliştirilmiştir.
+
+-   **Dashboard:** Sistem sağlığı ve piyasa fırsatlarının gerçek zamanlı özeti.
+-   **Analyze (Analiz):** Anında Denetim Raporu ve Dağıtım Planı almak için eğitim kodunuzu yapıştırın.
+-   **Chat:** **DeepSeek-V3** destekli asistan ile etkileşime geçin.
+-   **Deploy (Dağıtım):** Gerçek kredileri harcamadan önce dağıtım günlüklerini önizlemek için "Simülasyon Konsolu".
+
+## 🛠️ Teknoloji Yığını
+
+-   **Frontend:** Next.js 14 (App Router), React 18, Tailwind CSS v3, Shadcn/UI.
+-   **Backend:** Python 3.9, FastAPI, Uvicorn.
+-   **Yapay Zeka Modeli:** DeepSeek-V3 (`.env` üzerinden ayarlanabilir).
+-   **Altyapı:** Docker & Docker Compose (Çoklu konteyner orkestrasyonu).
 
 ---
 
-## 🤖 The Smart Agent Swarm
-
-Ajanlar artık "Kural Tabanlı" değil, "Veri Odaklı Karar Verici" (Data-Driven Decision Makers) konumundadır.
-
-| Simge | Ajan | Yeni Süper Gücü |
-| :--- | :--- | :--- |
-| 👁️ | **Watchdog** | **Efficiency Auditor**: "Sıcaklık normal ama Clock hızı düşük -> Verimlilik %65. Bu kabul edilemez!" diyerek alarm verir. |
-| 🩺 | **Diagnostician** | **Root Cause Analysis**: Sorunun kaynağını (Fan Motoru, Termal Macun, Ağ Darboğazı) teşhis eder. |
-| 💸 | **Accountant** | **Real-Time Ledger**: Her aksiyonun maliyetini (Cost of Repair vs Cost of Downtime) hesaplar. |
-| 🛡️ | **Enforcer** | **SLA Guardian**: Kullanıcı deneyimini (SLA) korumak için gerekirse çalışan (ama yavaş) makineyi kapatıp, yedeği devreye sokar. |
-
----
-
-## 🔮 Agentic VRAM Oracle (Pre-Flight Check)
-
-IO.net ekosisteminde en çok karşılaşılan "Out of Memory (OOM)" hatalarını önlemek için geliştirdiğimiz **3 Aşamalı Kod Denetim Hattı**:
-
-1.  **🧩 Code Parser Agent**: Yüklenen Python eğitim kodunu analiz eder (Model, Batch Size, Optimizer).
-2.  **🧮 VRAM Calculator**: Gerekli VRAM miktarını **GB cinsinden hesaplar**.
-3.  **💡 Optimization Advisor**: Mevcut donanım yetersizse, *Gradient Accumulation*, *LoRA* gibi teknik tavsiyeler verir.
-
----
-
-## 💻 DeepSim Lab: Operasyon Merkezi
-
-Yeni **Türkçe Arayüz** ile tam hakimiyet:
-
-*   **Canlı Verimlilik Barları**: Her kartın performansını renkli barlarla (Yeşil/Sarı/Kırmızı) izleyin.
-*   **Motor Günlüğü (Brain Trace)**: Ajanların "Thinking..." süreçlerini okuyun.
-*   **Dinamik Ölçekleme**: "Yeni Çekirdek Ekle" butonu ile yedek havuzunu büyütün.
-*   **Sabotaj Modu**: "Fanı Boz" diyerek ajanların kriz yönetimini test edin.
-
----
-
-## 🛠️ Kurulum ve Çalıştırma
+## ⚡ Başlarken
 
 ### Gereksinimler
-*   Docker & Docker Compose
-*   io.net Intelligence API Key (`IO_API_KEY`)
+-   [Docker Desktop](https://www.docker.com/products/docker-desktop/)'ın kurulu ve çalışıyor olması.
+-   Git.
 
-### Hızlı Başlangıç
+### Kurulum
 
-1.  **Repo'yu Klonlayın:**
+1.  **Depoyu Klonlayın**
     ```bash
     git clone https://github.com/aliozen0/sentinel-io.git
-    cd sentinel-io 
+    cd io-guard
+    ```
+
+2.  **Ortam Kurulumu**
+    Örnek ortam dosyasını kopyalayın ve anahtarlarınızı yapılandırın.
+    ```bash
     cp .env.example .env
     ```
+    *`.env` dosyasını düzenleyerek varsa `IO_API_KEY` ekleyebilir veya `IO_MODEL_NAME` değiştirebilirsiniz.*
 
-2.  **API Anahtarını Girin:**
-    `.env` dosyasını açın ve `IO_API_KEY`'inizi yapıştırın.
-
-3.  **Sistemi Başlatın:**
+3.  **Sistemi Başlatın**
     ```bash
-    docker compose up --build -d
+    docker-compose up --build
     ```
 
-4.  **DeepSim Lab'e Bağlanın:**
-    Tarayıcınızda [http://localhost:8501](http://localhost:8501) adresine gidin.
-
-### 🎮 Nasıl Oynanır? (Demo Senaryosu)
-
-1.  Arayüzden **"Yeni Çekirdek Ekle"** ile yedek havuza işçi ekleyin.
-2.  Aktif bir karta **"🔧 -> 🔥 Fanı Boz"** deyin.
-3.  **İzleyin:**
-    *   Kartın **Verimlilik Barı** düşmeye başlayacak.
-    *   %70 altına inince bar sararacak, Watchdog **"Performans Kaybı"** raporlayacak.
-    *   **Enforcer Ajanı**, kart bozulmadan önce (Preemptive Failover) onu yedeğe çekecek ve taze bir işçiyi işe alacak.
-    *   Tüm bu süreci **"Motor Günlüğü"**ndeki 🧠 ikonlarına tıklayarak okuyabilirsiniz.
-
----
-
-## 🏗️ Teknik Mimari & Altyapı (Core Features)
-
-Buzdağının görünen yüzü arayüz olsa da, suyun altında şu sistemler çalışmaktadır:
-
-### 1. Security Core (Proof-of-Compute) 🔒
-*   **HMAC-SHA256 Signatures**: Her Worker, ürettiği telemetri verisini (Latency, GPU Temp) gizli anahtarı ile imzalar.
-*   **Tamper-Proofing**: Watchdog ajanı, imzası geçersiz veya bozuk olan paketleri "SPOOFING" olarak işaretler ve reddeder.
-*   **Endpoint:** `/telemetry/secure`
-
-### 2. Ray-Lite Orchestrator ⚡
-*   **Lifecycle Management**: Node'lar sadece "Açık/Kapalı" değildir. `IDLE` (Yedek), `ACTIVE` (Çalışan), `CORDONED` (Karantina), `DRAINING` (Kapatılıyor) durumları arasında geçiş yaparlar.
-*   **State Manager**: Tüm küme durumu bellekte (In-Memory) tutulur ve nanosaniye hızında yönetilir.
-*   **Endpoint:** `/cluster/status`
-
-### 3. Economy Engine (Tokenomics) 💎
-*   **Accountant Agent**: Sistemin CFO'sudur.
-*   **Ledger**: Her milisaniyede bir "Compute Cost" hesaplar. Kesintilerde (SLA Breach) "Slashing" (Ceza) keser, başarılı işlerde "Reward" (Ödül) dağıtır.
-*   **Endpoint:** `/economy/ledger`
+4.  **Uygulamaya Erişin**
+    -   **Frontend (Arayüz):** [http://localhost:3000](http://localhost:3000)
+    -   **Backend API Dokümanı:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
 ## 📂 Proje Yapısı
 
-```plaintext
-io-guard/
-├── backend/
-│   ├── agents/                     # Hibrit AI Ajanları (Watchdog, Enforcer...)
-│   ├── services/                   # State Manager & Simulation Logic
-│   ├── ai_client.py                # OpenAI Wrapper & Brain Trace Logging
-│   ├── main.py                     # API Endpoints
-│   └── requirements.txt            
-├── frontend/                       # Streamlit Dashboard (Türkçe)
-├── workers/                        # Digital Twin Worker (worker.py)
-└── docker-compose.yml              # Cluster Tanımı
 ```
+io-guard/
+├── backend/                # FastAPI Servisi (Beyin)
+│   ├── agents/             # Ajan Uygulamaları (Auditor, Sniper vb.)
+│   ├── db/                 # Veritabanı Şeması
+│   └── main.py             # API Giriş Noktası
+├── frontend/               # Next.js Uygulaması (Yüz)
+│   ├── app/                # App Router Sayfaları
+│   ├── components/         # Yeniden Kullanılabilir UI Bileşenleri
+│   └── Dockerfile          # Node.js 20 Konteyneri
+├── frontend_old/           # Arşivlenmiş Eski Frontend (Yoksayıldı)
+├── docker-compose.yml      # Orkestrasyon Yapılandırması
+└── .env                    # Sırlar ve Ayarlar
+```
+
+## 🔮 Yol Haritası
+
+-   [x] **Faz 1: MVP Çekirdek** (Ajanlar, Simülasyon, UI)
+-   [ ] **Faz 2: Canlı Entegrasyon** (SSH Tünelleme, Gerçek Market API)
+-   [ ] **Faz 3: Otonom Mod** (Kendi kendine iyileşme, Otomatik ölçeklendirme)
+-   [ ] **Faz 4: Gelir Modeli** (Kullanıcı Kredi Sistemi)
 
 ---
 
-*Powered by io.net Intelligence API & OpenAI LLMs*
+## 📄 Lisans
+
+Bu proje MIT Lisansı altında lisanslanmıştır.
