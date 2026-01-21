@@ -1,55 +1,48 @@
 # io-Guard: Otonom Hesaplama Aracısı
 
-**io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) basit sorular soran bir sistemdir. Kümeleme (clustering), donanım seçimi ve ortam yapılandırmasının karmaşıklığını soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
+**io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-MVP%20v1.0-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.1-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ---
 
-## 🚀 Vizyon
+## 🚀 Temel Özellikler
 
-Merkeziyetsiz Fiziksel Altyapı Ağları (DePIN) çağında, hesaplama gücü boldur ancak parçalıdır. **io-Guard**, aşağıdaki işlemleri gerçekleştiren yapay zeka ajanlarını kullanarak sizin akıllı aracınız (broker) olarak hizmet eder:
-1.  **Denetle (Audit):** Kodunuzu kaynak gereksinimleri için analiz eder.
-2.  **Avla (Snipe):** En iyi GPU fırsatlarını yakalamak için piyasayı tarar.
-3.  **Tasarla (Architect):** Mükemmel Docker ortamını kurgular.
-4.  **Yürüt (Execute):** Eğitim sürecini otonom olarak başlatır ve izler.
+Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemler yapabilme yeteneğine sahiptir:
+
+1.  **Omurga (The Backbone):** Supabase destekli veritabanı ile tüm sohbetler, iş geçmişi ve piyasa verileri kalıcı olarak saklanır.
+2.  **Gerçek Gözler (Real Eyes):** `api.io.solutions` entegrasyonu ile **canlı GPU piyasasını** (Fiyat, Stok, Kiralama Durumu) anlık takip eder.
+3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
+4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
 
 ## 🧠 Çekirdek Ajanlar (Backend)
 
-Sistem, **DeepSeek-V3** (via `io Intelligence`) tarafından desteklenen Mikro-Ajan Mimarisi ile çalışır:
-
 | Ajan | Rol | İşlev |
 | :--- | :--- | :--- |
-| **🕵️ The Auditor (Denetçi)** | Statik Analiz | Python kodunu ayrıştırarak VRAM (GB) ve kütüphane gereksinimlerini (PyTorch/TF) tahmin eder. |
-| **🎯 The Sniper (Keskin Nişancı)** | Piyasa Arbitrajı | `Skor = (Fiyat/Performans) + Güvenilirlik` formülüyle en iyi düğümleri (node) bulur. |
-| **🏗️ The Architect (Mimar)** | Ortam Yöneticisi | Kod gereksinimlerini deterministik olarak optimize edilmiş Docker imajlarıyla eşleştirir (örn. `ray-project/ray-ml`). |
-| **🤖 The Assistant (Asistan)** | Mantık Çekirdeği | Teknik destek ve rehberlik için arayüze entegre edilmiş genel amaçlı bir yapay zeka sohbet botu. |
+| **🕵️ Auditor** | Statik Analiz | Kodunuzu okur, kütüphane ve VRAM gereksinimlerini belirler. |
+| **🎯 Sniper** | Piyasa Arbitrajı | Canlı API verisiyle `Skor = (Fiyat/Performans) + Güvenilirlik` analizi yapar. |
+| **🔐 Connector** | Güvenli Bağlantı | SSH Tünelleme ve sunucu sağlığı (uptime) kontrolü sağlar. |
+| **🤖 Assistant** | Genel Zeka | Teknik destek veren, veritabanı hafızalı sohbet botu. |
 
 ## 💻 Arayüz (Frontend)
 
-**Next.js 14**, **Tailwind CSS** ve **Shadcn/UI** ile geliştirilmiştir.
+**Next.js 14**, **Tailwind CSS** ve **Shadcn/UI** ile geliştirilmiş modern bir konsol:
 
--   **Dashboard:** Sistem sağlığı ve piyasa fırsatlarının gerçek zamanlı özeti.
--   **Analyze (Analiz):** Anında Denetim Raporu ve Dağıtım Planı almak için eğitim kodunuzu yapıştırın.
--   **Chat:** **DeepSeek-V3** destekli asistan ile etkileşime geçin.
--   **Deploy (Dağıtım):** Gerçek kredileri harcamadan önce dağıtım günlüklerini önizlemek için "Simülasyon Konsolu".
-
-## 🛠️ Teknoloji Yığını
-
--   **Frontend:** Next.js 14 (App Router), React 18, Tailwind CSS v3, Shadcn/UI.
--   **Backend:** Python 3.9, FastAPI, Uvicorn.
--   **Yapay Zeka Modeli:** DeepSeek-V3 (`.env` üzerinden ayarlanabilir).
--   **Altyapı:** Docker & Docker Compose (Çoklu konteyner orkestrasyonu).
+-   **Dashboard:** Canlı piyasa verileri (Fiyatlar, Doluluk Oranları) ve sistem sağlığı.
+-   **Analyze:** Kodunuzu yapıştırın, Ajanlar analiz etsin.
+-   **Deploy:** İster simülasyon yapın, ister **SSH Anahtarı** ekleyerek gerçek sunucunuza bağlanın.
+-   **Chat:** Asistan ile konuşun, geçmiş konuşmalarınızı kaybetmeyin.
 
 ---
 
-## ⚡ Başlarken
+## ⚡ Kurulum ve Çalıştırma
 
 ### Gereksinimler
--   [Docker Desktop](https://www.docker.com/products/docker-desktop/)'ın kurulu ve çalışıyor olması.
--   Git.
+-   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+-   Git
+-   Supabase Hesabı (Veritabanı için)
 
-### Kurulum
+### Adım Adım Kurulum
 
 1.  **Depoyu Klonlayın**
     ```bash
@@ -57,21 +50,25 @@ Sistem, **DeepSeek-V3** (via `io Intelligence`) tarafından desteklenen Mikro-Aj
     cd io-guard
     ```
 
-2.  **Ortam Kurulumu**
-    Örnek ortam dosyasını kopyalayın ve anahtarlarınızı yapılandırın.
+2.  **Ortam Değişkenleri**
+    `.env.example` dosyasını `.env` olarak kopyalayın ve Supabase bilgilerinizi girin:
     ```bash
     cp .env.example .env
+    # .env dosyasını açıp SUPABASE_URL ve SUPABASE_KEY alanlarını doldurun.
     ```
-    *`.env` dosyasını düzenleyerek varsa `IO_API_KEY` ekleyebilir veya `IO_MODEL_NAME` değiştirebilirsiniz.*
 
 3.  **Sistemi Başlatın**
+    Tüm servisleri (Backend & Frontend) ayağa kaldırın:
     ```bash
     docker-compose up --build
     ```
 
-4.  **Uygulamaya Erişin**
-    -   **Frontend (Arayüz):** [http://localhost:3000](http://localhost:3000)
-    -   **Backend API Dokümanı:** [http://localhost:8000/docs](http://localhost:8000/docs)
+4.  **Veritabanı Kurulumu**
+    Supabase SQL Editöründe `backend/db/schema.sql` dosyasındaki tabloları oluşturun (`chat_messages`, `jobs`, `ssh_keys`).
+
+5.  **Erişim**
+    -   **Frontend:** [http://localhost:3000](http://localhost:3000)
+    -   **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
@@ -79,25 +76,24 @@ Sistem, **DeepSeek-V3** (via `io Intelligence`) tarafından desteklenen Mikro-Aj
 
 ```
 io-guard/
-├── backend/                # FastAPI Servisi (Beyin)
-│   ├── agents/             # Ajan Uygulamaları (Auditor, Sniper vb.)
-│   ├── db/                 # Veritabanı Şeması
-│   └── main.py             # API Giriş Noktası
-├── frontend/               # Next.js Uygulaması (Yüz)
-│   ├── app/                # App Router Sayfaları
-│   ├── components/         # Yeniden Kullanılabilir UI Bileşenleri
-│   └── Dockerfile          # Node.js 20 Konteyneri
-├── frontend_old/           # Arşivlenmiş Eski Frontend (Yoksayıldı)
-├── docker-compose.yml      # Orkestrasyon Yapılandırması
-└── .env                    # Sırlar ve Ayarlar
+├── backend/                # Python FastAPI (Beyin)
+│   ├── agents/             # Ajanlar (Sniper, Auditor)
+│   ├── db/                 # Veritabanı İstemcisi & Şema
+│   ├── services/           # Servisler (SSH Manager)
+│   └── main.py             # API Endpoint'leri
+├── frontend/               # Next.js 14 (Arayüz)
+│   ├── app/                # Sayfalar (Dashboard, Deploy)
+│   └── components/         # UI Bileşenleri (SSH Modal, Charts)
+└── docker-compose.yml      # Orkestrasyon
 ```
 
-## 🔮 Yol Haritası
+## 🔮 Yol Haritası (Roadmap)
 
--   [x] **Faz 1: MVP Çekirdek** (Ajanlar, Simülasyon, UI)
--   [ ] **Faz 2: Canlı Entegrasyon** (SSH Tünelleme, Gerçek Market API)
--   [ ] **Faz 3: Otonom Mod** (Kendi kendine iyileşme, Otomatik ölçeklendirme)
--   [ ] **Faz 4: Gelir Modeli** (Kullanıcı Kredi Sistemi)
+-   [x] **Adım 1: Veri Omurgası** (Supabase Entegrasyonu) ✅
+-   [x] **Adım 2: Gerçek Piyasa** (Canlı API Verisi) ✅
+-   [x] **Adım 3: Güvenli Bağlantı** (SSH & Paramiko) ✅
+-   [ ] **Adım 4: Dosya Transferi** (Lokal Yükleme & Wget) 🚧
+-   [ ] **Adım 5: Canlı Yürütme** (Remote Docker Execution)
 
 ---
 
