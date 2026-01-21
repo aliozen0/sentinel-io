@@ -25,28 +25,64 @@ class WatchdogAgent(BaseAgent):
                 "temp": round(data.get("temperature", 0), 1),
                 "fan": round(data.get("fan_speed", 0), 1),
                 "clock": round(data.get("clock_speed", 100), 1),
-                "load": round(data.get("gpu_util", 0), 1)
+                "load": round(data.get("gpu_util", 0), 1),
+                "integrity": data.get("integrity", "UNKNOWN")
             })
+
+        # 2a. SECURITY CHECK (PoC)
+        spoofed_nodes = [w for w in worker_list if w["integrity"] == "SPOOFED"]
+        if spoofed_nodes:
+             anomalies = []
+             for w in spoofed_nodes:
+                 anomalies.append({
+                     "node_id": w["id"],
+                     "reason": "CRITICAL: Signature Spoofing Detected (PoC Violation)"
+                 })
+             ctx.anomalies_detected = anomalies
+             return {"anomalies": anomalies}, f"🚨 SECURITY BREACH: {len(spoofed_nodes)} nodes failed signature check!"
             
         if not worker_list:
             return {}, "No workers to analyze."
 
-        system_prompt = (
-            "You are a Physics Engine Watchdog. Analyze worker telemetry for anomalies. "
-            "PHYSICS RULES:"
-            "1. High Temp (>90C) is CRITICAL."
-            "2. High Fan (>90%) with High Temp (>85C) means Cooling Failure."
-            "3. Low Clock (<90%) means Thermal Throttling."
-            "4. Latency > 1.0s is High."
-            "Return ONLY JSON: {\"anomalies\": [{\"node_id\": \"...\", \"reason\": \"Thermal Throttling (Clock 50%)\"}]}. "
-        )
-        user_prompt = f"Telemetry: {json.dumps(worker_list)}"
+        # 2b. PRE-PROCESSING: Calculate Raw Efficiency Metrics
+        # This gives the LLM quantitative data to reason about, rather than just "high/low"
+        for w in worker_list:
+            # Normalized metrics (0.0 - 1.0)
+            temp_score = max(0, 1.0 - (w["temp"] / 100.0)) # 100C = 0.0
+            clock_score = w["clock"] / 100.0 # 100% = 1.0
+            latency_score = max(0, 1.0 - w["lat"]) # 1s latency = 0.0
+            
+            # Weighted Efficiency Index (WEI)
+            # Performance (Clock) is king, but Stability (Temp/Lat) is queen.
+            w["efficiency_index"] = round((clock_score * 0.4) + (temp_score * 0.3) + (latency_score * 0.3), 2)
+
+        # HYBRID APPROACH: Data-Driven Prompts
+        # We pass the Calculated Efficiency Index to the LLM.
+        # This allows the Agent to decide "Is 0.65 efficiency critical in this context?"
         
-        logger.info(f"Watchdog: Scanning {len(worker_list)} nodes for physics violations...")
+        system_prompt = (
+            "You are an Advanced Infrastructure Intelligence. Analyze worker telemetry. "
+            "metrics include a computed 'efficiency_index' (0.0-1.0). "
+            "GOAL: Ensure User Experience. "
+            "Use the efficiency_index as a STRONG signal, but provide your own severity assessment. "
+            "GUIDELINES: "
+            "1. Efficiency < 0.7 usually implies 'Performance Degradation' (Medium Severity). "
+            "2. Efficiency < 0.4 implies 'Functional Failure' (Critical Severity). "
+            "3. Look for correlations: Low Efficiency + High Temp = Thermal Throttling. "
+            "Return JSON with 'anomalies': [{'node_id': '...', 'reason': 'Efficiency dropped to 0.65 due to Throttling. Recommended Preemptive Failover.', 'severity': 'MEDIUM'|'CRITICAL'}]"
+        )
+        user_prompt = f"Telemetry with Efficiency Indexes: {json.dumps(worker_list)}"
+        
+        logger.info(f"Watchdog: asking AI to analyze efficiency for {len(worker_list)} nodes...")
         response_text = await ask_io_intelligence_async(system_prompt, user_prompt)
         
         # 3. Parse Response
         try:
+            # Sanity Check for API Errors
+            if response_text.startswith("AI Error") or "Error" in response_text[:20]:
+                logger.error(f"Watchdog AI Failure: {response_text}")
+                return {}, f"Result: System Healthy (AI Unreachable: {response_text[:50]}...)"
+
             if "```json" in response_text:
                 response_text = response_text.split("```json")[1].split("```")[0].strip()
             elif "```" in response_text:
@@ -55,15 +91,25 @@ class WatchdogAgent(BaseAgent):
             data = json.loads(response_text)
             anomalies = data.get("anomalies", [])
             
+            # Add raw score context for downstream agents
+            for a in anomalies:
+                node = next((w for w in worker_list if w["id"] == a["node_id"]), None)
+                if node:
+                    a["efficiency"] = node.get("efficiency_index", 0.0)
+            
             ctx.anomalies_detected = anomalies
             
             if anomalies:
-                return {"anomalies": anomalies}, f"Watchdog detected {len(anomalies)} physics violations."
+                return {"anomalies": anomalies}, f"Watchdog AI flagged {len(anomalies)} anomalies."
             else:
-                return {"anomalies": []}, "All systems within physics tolerances."
+                return {"anomalies": []}, "AI analysis indicates healthy cluster."
                 
+        except json.JSONDecodeError:
+            logger.error(f"Watchdog Malformed JSON: {response_text}")
+            return {}, "Result: System Healthy (AI Response Malformed)"
         except Exception as e:
-            return {}, f"Watchdog failed: {e}"
+            logger.error(f"Watchdog Logic Error: {e}")
+            return {}, f"Watchdog Logic Error: {str(e)}"
 
 class DiagnosticianAgent(BaseAgent):
     """
@@ -106,62 +152,67 @@ class AccountantAgent(BaseAgent):
     If Clock Speed is < 100%, we are paying 100% price for partial performance.
     """
     async def _process(self, ctx: AnalysisContext) -> tuple[dict, str]:
-        from ai_client import ask_io_intelligence_async
-        import json
+        from state_manager import state
         
-        if not ctx.anomalies_detected:
-            return {}, "No financial waste detected."
-
-        # Prepare Data for the CFO Agent
-        anomalies_context = []
-        for anomaly in ctx.anomalies_detected:
-            node_id = anomaly.get("node_id")
-            tdata = ctx.telemetry_snapshot.get(node_id)
-            if tdata:
-                anomalies_context.append({
-                    "id": node_id,
-                    "issue": anomaly.get("reason"),
-                    "telemetry": {
-                        "temp": tdata.temperature,
-                        "clock": tdata.clock_speed,
-                        "fan": tdata.fan_speed,
-                        "gpu_load": tdata.gpu_util
-                    }
-                })
-
-        # IMPROVED: Agentic Financial prompting
-        system_prompt = (
-            "You are the CFO AI (Chief Financial Officer). "
-            "Analyze the technical anomalies below and calculate financial impact. "
-            "COST MODEL:\n"
-            "- COMPUTE_LOSS: $2.50/hr per node if Clock < 100%.\n"
-            "- POWER_WASTE: $0.50/hr per node if Fan > 90% (Inefficient).\n"
-            "- RISK_PREMIUM: $15.00/hr per node if Temp > 90C (Meltdown Risk).\n\n"
-            "INSTRUCTIONS:\n"
-            "1. Calculate total waste for each node based on the model.\n"
-            "2. Sum up to 'total_waste_hourly'.\n"
-            "3. Write a SHORT, punchy executive summary (1 sentence).\n"
-            "OUTPUT ONLY JSON: {\"total_waste_hourly\": float, \"details\": list, \"story\": string}"
-        )
+        # TOKENOMICS ENGINE (DETERMINISTIC)
+        total_impact = 0.0
+        details = []
         
-        user_prompt = f"Anomalies Detected:\n{json.dumps(anomalies_context, indent=2)}"
+        # 1. Calculate Rewards (Proof-of-Uptime)
+        active_workers = state.get_all_workers()
+        for wid, info in active_workers.items():
+            if info.get("status") == "Active":
+                 reward = 0.01
+                 total_impact += reward
+                 # details.append(f"{wid}: +{reward}") # Too noisy
         
-        try:
-            response_text = await ask_io_intelligence_async(system_prompt, user_prompt)
+        # 2. Calculate Slashing (Penalties)
+        # We analyze the SNAPSHOT provided in context
+        telemetry_map = ctx.telemetry_snapshot
+        
+        penalty_reasons = []
+        
+        for wid, tdata in telemetry_map.items():
+            # Rule 1: Safety (Signatures) - handled by Watchdog but we penalize here too if flagged
+            if tdata.integrity == "SPOOFED":
+                slashed = -100.0
+                total_impact += slashed
+                penalty_reasons.append(f"{wid} SPOOF (-100 $IO)")
             
-            # JSON Parsing Logic
-            json_str = response_text
-            if "```json" in response_text:
-                json_str = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                json_str = response_text.split("```")[1].split("```")[0].strip()
+            # Rule 2: Performance (Latency)
+            if tdata.latency > 0.5:
+                slashed = -5.0
+                total_impact += slashed
+                penalty_reasons.append(f"{wid} LATENCY > 0.5s (-5 $IO)")
                 
-            report = json.loads(json_str)
-            ctx.financial_report = report
-            return report, report.get("story", "Financial Analysis Complete.")
+            # Rule 3: Hardware (Temp)
+            if tdata.temperature > 95.0:
+                slashed = -10.0
+                total_impact += slashed
+                penalty_reasons.append(f"{wid} OVERHEAT (-10 $IO)")
+        
+        # 3. Update Ledger
+        if len(penalty_reasons) > 0:
+            summary = ", ".join(penalty_reasons)
+        else:
+            summary = "Uptime Rewards"
             
-        except Exception as e:
-            return {}, f"CFO Analysis Failed: {e}"
+        state.update_ledger(total_impact, summary)
+        
+        report = {
+            "total_impact": total_impact,
+            "period": "10s",
+            "balance": state.ledger["balance"],
+            "slashed": state.ledger["slashed"]
+        }
+        
+        ctx.financial_report = report
+        
+        msg = f"Financial Impact: {total_impact:+.2f} $IO. "
+        if penalty_reasons:
+            msg += f"Penalties: {', '.join(penalty_reasons[:3])}..."
+            
+        return report, msg
 
 class EnforcerAgent(BaseAgent):
     """
@@ -186,15 +237,18 @@ class EnforcerAgent(BaseAgent):
         }
         
         # SRE Manager Prompt
+        # SRE Manager Prompt
+        # Holistic Decision Making
         system_prompt = (
-            "You are the SRE Manager (Site Reliability Engineering). "
-            "make a FINAL DECISION based on the technical and financial reports. "
-            "AVAILABLE ACTIONS:\n"
-            "- REPAIR: Dispatch technician (Cost: $50 fixed). Use for 'Fan Failure', 'Thermal Paste' if Waste < $500.\n"
-            "- RESTART: Remote reboot (Cost: $0, Downtime: 10s). Use for 'Software Glitch', 'Unknown', or low-cost throttling.\n"
-            "- ISOLATE: Kill the node (Cost: $0, Capacity Loss). Use if Waste > $500/hr (Bleeding cash) OR Critical Meltdown Risk.\n"
-            "- IGNORE: Do nothing. Use if waste is negligible (< $1.00).\n\n"
-            "OUTPUT JSON: {\"node_id\": \"...\", \"action\": \"REPAIR\"|\"RESTART\"|\"ISOLATE\"|\"IGNORE\", \"reasoning\": \"...\"}"
+            "You are the SRE Manager. Your goal is MAXIMAL USER EXPERIENCE (SLA 99.9%). "
+            "Review the anomalies provided by the Watchdog AI (which include efficiency scores). "
+            "DECISION MATRIX:"
+            "1. If Severity 'CRITICAL' -> FAILOVER IMMEDIATELY (Safety First)."
+            "2. If Severity 'MEDIUM' AND Standby Node Available -> FAILOVER (Proactive Optimization)."
+            "3. If Severity 'MEDIUM' AND No Standby -> RESTART (Attempt to clear software locks)."
+            "4. If 'Minor' -> REPAIR request."
+            "REASONING: Explain WHY you chose the action. E.g., 'Efficiency is 0.65, risking user lag. Switching to fresh standby node.'"
+            "OUTPUT JSON: {\"node_id\": \"...\", \"action\": \"FAILOVER\"|\"RESTART\"|\"REPAIR\", \"reasoning\": \"...\"}"
         )
         
         user_prompt = f"Intelligence Brief:\n{json.dumps(intelligence_brief, indent=2)}"
@@ -211,7 +265,7 @@ class EnforcerAgent(BaseAgent):
                 
             decision = json.loads(json_str)
             action = decision.get("action", "IGNORE").upper()
-            target_node = decision.get("node_id", intelligence_brief["anomalies"][0]["node_id"])
+            target_node = decision.get("node_id", intelligence_brief["anomalies"][0].get("node_id"))
             reason = decision.get("reasoning", "No reason provided.")
             
             # Execute Action
@@ -221,14 +275,27 @@ class EnforcerAgent(BaseAgent):
             async with httpx.AsyncClient() as client:
                 if action == "REPAIR":
                     await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}")
-                elif action == "ISOLATE":
-                    # In a real app this might stop the container. For now, maybe just log?
-                    # Or we implement a 'kill' endpoint. Let's assume repair for now effectively 'resets' state
-                    # But ideally we'd have a /stop endpoint.
-                    await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}") # Placeholder for Kill
                 elif action == "RESTART":
-                    # Restart logic (simulate by repair for demo simplicity, or add specific endpoint)
+                     # Simulating restart by a quick repair actually
                     await client.post(f"{BACKEND_URL}/chaos/repair/{target_node}") 
+                elif action == "FAILOVER":
+                    from state_manager import state
+                    
+                    # 1. Cordon the inefficient node
+                    state.transition_node(target_node, "CORDONED")
+                    
+                    # 2. Find replacement
+                    standby = state.get_idle_node()
+                    
+                    if standby:
+                        state.transition_node(standby, "ACTIVE")
+                        msg = f"🚀 PREEMPTIVE FAILOVER: Swapped {target_node} (Inefficient) with {standby} (Fresh). {reason}"
+                        logger.warning(msg)
+                        exec_log = msg
+                    else:
+                        msg = f"⚠️ FAILOVER BLOCKED: No Standby nodes! keeping {target_node} online despite degradation."
+                        logger.error(msg)
+                        exec_log = msg
             
             ctx.actions_taken.append(exec_log)
             return {"decision": decision}, exec_log

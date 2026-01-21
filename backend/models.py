@@ -9,7 +9,17 @@ class TelemetryData(BaseModel):
     gpu_util: float
     fan_speed: float = 0.0
     clock_speed: float = 100.0
+    integrity: str = "UNKNOWN" # VERIFIED / SPOOFED
     timestamp: datetime = Field(default_factory=datetime.now)
+
+class SecureHeader(BaseModel):
+    worker_id: str
+    timestamp: int
+    signature: str
+
+class SecureTelemetryPayload(BaseModel):
+    header: SecureHeader
+    body: TelemetryData
 
 class AgentResponse(BaseModel):
     agent_id: str
@@ -23,6 +33,7 @@ class AnalysisContext(BaseModel):
     """
     session_id: str
     telemetry_snapshot: Dict[str, TelemetryData]
+    secure_verification_failed: bool = False
     anomalies_detected: List[Dict[str, Any]] = []
     diagnosis: Optional[str] = None
     financial_report: Optional[Dict[str, Any]] = None

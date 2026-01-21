@@ -32,7 +32,24 @@ def ask_io_intelligence(system_prompt: str, user_prompt: str):
             ],
             temperature=0.1
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        
+        # LOGGING (Brain Trace)
+        try:
+            from state_manager import state
+            state.add_agent_log({
+                "agent": "Brain (LLM)",
+                "message": f"Thinking...\nPrompt: {system_prompt[:50]}...\nResponse: {content[:100]}...",
+                "details": {
+                    "system_prompt": system_prompt,
+                    "user_prompt": user_prompt,
+                    "response": content
+                }
+            })
+        except ImportError:
+            pass # Avoid circular import if any
+            
+        return content
     except Exception as e:
         return f"AI Error: {str(e)}"
 

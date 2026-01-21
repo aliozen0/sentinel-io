@@ -1,3 +1,5 @@
+import hmac
+import hashlib
 import time
 import random
 import requests
@@ -40,6 +42,7 @@ class DigitalTwin:
         self.throttle_temp = 95.0
         self.heat_gen_base = 1.5 # degrees per tick
         self.cooling_power_max = 4.0 # degrees per tick max cooling
+        self.is_spoofing = False
         
     def update_physics(self, load_percent: float):
         """
@@ -117,11 +120,13 @@ def work_loop():
                         elif component == "NETWORK": twin.health_network = val
                         elif component == "POWER": twin.health_power = val
                         elif component == "DUST": twin.dust_factor = val # New sabotage type
+                        elif component == "SIGNATURE_SPOOF": twin.is_spoofing = True
                         elif component == "ALL_RESTORE": 
                             twin.health_cooling = 1.0
                             twin.health_network = 1.0
                             twin.health_power = 1.0
                             twin.dust_factor = 0.0
+                            twin.is_spoofing = False
                             
             except Exception:
                 pass # Backend offline?
@@ -131,10 +136,10 @@ def work_loop():
             current_load = random.uniform(20.0, 80.0)
             twin.update_physics(current_load)
             
-            # 3. Send Telemetry with Extended Physics Data
+            # 3. Send Telemetry with Extended Physics Data (SIGNED)
             current_latency = twin.get_latency()
             
-            data = {
+            body_payload = {
                 "worker_id": WORKER_ID,
                 "latency": current_latency,
                 "temperature": twin.temp,
@@ -147,10 +152,35 @@ def work_loop():
                 }
             }
 
+            # SIGNATURE GENERATION (PoC)
+            timestamp = int(time.time())
+            # Canonical String: worker_id:timestamp:latency:temp
+            # Ensure consistent float formatting for hash (e.g. .2f or just str())
+            # For robustness, we'll use string conversion of the exact values in payload
+            canonical_string = f"{WORKER_ID}:{timestamp}:{current_latency}:{twin.temp}"
+            
+            # Simulated Secret Key (In prod, use env vars)
+            key_suffix = "_FAKE" if twin.is_spoofing else ""
+            SECRET_KEY = f"simulated_sk_{WORKER_ID}{key_suffix}".encode()
+            
+            signature = hmac.new(SECRET_KEY, canonical_string.encode(), hashlib.sha256).hexdigest()
+            
+            final_packet = {
+                "header": {
+                    "worker_id": WORKER_ID,
+                    "timestamp": timestamp,
+                    "signature": signature
+                },
+                "body": body_payload
+            }
+
             try:
-                requests.post(f"{BACKEND_URL}/telemetry", json=data, timeout=2)
+                # Use new secure endpoint (or updated existing one)
+                # For v4 transition, we'll try secure first, fallback if not ready? 
+                # Or just push to /telemetry/secure as planned.
+                requests.post(f"{BACKEND_URL}/telemetry/secure", json=final_packet, timeout=2)
             except Exception as e:
-                # Only log error occasionally/locally to avoid spamming self if network is dead
+                # remote_log("error", f"Telemetry failed: {e}")
                 pass
 
             time.sleep(0.5) # 2Hz Physics Loop

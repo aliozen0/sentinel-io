@@ -6,12 +6,23 @@ class StateManager:
         self.workers: Dict[str, Dict] = {}
         self.worker_history: Dict[str, List[Dict]] = {}
         self.agent_logs: List[Dict] = []
+        
+        # Tokenomics Ledger
+        self.ledger = {
+            "balance": 5000.0,
+            "slashed": 0.0,
+            "rewards": 0.0,
+            "history": [] # {"reason": "...", "amount": -10.0, "ts": ...}
+        }
     
     def update_worker_status(self, worker_id: str, data: dict):
         self.workers[worker_id] = {
             "last_seen": datetime.now(),
             "data": data,
-            "status": "Active" # Default status
+            "status": "Active", # Default status
+            "status": "Active", # Default status
+            "lifecycle_state": "ACTIVE", # IDLE / ACTIVE / CORDONED / DRAINING / OFFLINE
+            "integrity": data.get("integrity", "UNKNOWN") # VERIFIED / SPOOFED / UNKNOWN
         }
         
         # Initialize history if not exists
@@ -22,7 +33,7 @@ class StateManager:
         # DeepSim Enterprise needs more data points for trend analysis
         self.worker_history[worker_id].append({
             "timestamp": datetime.now().isoformat(),
-            **data # Store FULL telemetry (temp, fan, load, etc.)
+            **data # Store FULL telemetry
         })
         if len(self.worker_history[worker_id]) > 60:
             self.worker_history[worker_id].pop(0)
@@ -43,6 +54,17 @@ class StateManager:
     def get_agent_logs(self, limit: int = 50):
         return self.agent_logs[-limit:]
 
+    def transition_node(self, worker_id: str, new_state: str):
+        if worker_id in self.workers:
+            self.workers[worker_id]["lifecycle_state"] = new_state.upper()
+    
+    def get_idle_node(self):
+        """Returns the first IDLE node found."""
+        for wid, info in self.workers.items():
+            if info.get("lifecycle_state") == "IDLE":
+                return wid
+        return None
+
     def get_all_workers(self):
         # Update statuses based on last_seen (e.g. timeout > 5s = Offline)
         now = datetime.now()
@@ -57,5 +79,39 @@ class StateManager:
     def kill_worker(self, worker_id: str):
         if worker_id in self.workers:
             self.workers[worker_id]["status"] = "Killed"
+
+    def update_ledger(self, amount: float, reason: str):
+        self.ledger["balance"] += amount
+        if amount < 0:
+            self.ledger["slashed"] += abs(amount)
+        else:
+            self.ledger["rewards"] += amount
+            
+        self.ledger["history"].append({
+            "ts": datetime.now().strftime("%H:%M:%S"),
+            "amount": amount,
+            "reason": reason
+        })
+        # Keep history short
+        if len(self.ledger["history"]) > 20:
+             self.ledger["history"].pop(0)
+
+    def get_ledger(self):
+        return self.ledger
+    
+    def add_simulated_worker(self, worker_id: str):
+        """Creates a placeholder IDLE worker."""
+        self.workers[worker_id] = {
+            "last_seen": datetime.now(),
+            "data": {
+                "temperature": 25.0,
+                "latency": 0.05,
+                "fan_speed": 0,
+                "health": {"cooling": 1.0, "network": 1.0}
+            },
+            "status": "Active",
+            "lifecycle_state": "IDLE", # Starts as Standby
+            "integrity": "VERIFIED"
+        }
 
 state = StateManager()
