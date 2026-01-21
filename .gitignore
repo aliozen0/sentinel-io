@@ -82,5 +82,33 @@ coverage/
 htmlcov/
 .pytest_cache/
 
-# Backup
+# Backup & Old Versions
 frontend_old/
+
+# Development & Test Files (Not for Production)
+generate_keys.py
+gpu_burn_test.py
+test_recovery.py
+test_core_v1.py
+test_vram_prediction.py
+
+# SSH Keys (SECURITY!)
+mock_node_key
+mock_node_key.pub
+*.pem
+*.key
+id_rsa*
+authorized_keys
+
+# Uploaded Files (Dynamic Content)
+backend/uploads/
+
+# Cache & Snapshots
+backend/market_snapshot.json
+
+# Mock GPU (Local Docker Dev Only)
+# Uncomment if you want to include mock_gpu/ in repo
+# mock_gpu/
+
+# Generated Keys
+backend/keys/

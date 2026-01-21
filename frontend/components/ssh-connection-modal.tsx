@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,15 +8,32 @@ import { Textarea } from "@/components/ui/textarea";
 interface SshConnectionModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSave?: (config: any) => void;
+    initialValues?: {
+        hostname?: string;
+        port?: number;
+        username?: string;
+        privateKey?: string;
+    };
 }
 
-export function SshConnectionModal({ isOpen, onClose }: SshConnectionModalProps) {
-    const [hostname, setHostname] = useState("");
-    const [port, setPort] = useState("22");
-    const [username, setUsername] = useState("root");
-    const [privateKey, setPrivateKey] = useState("");
+export function SshConnectionModal({ isOpen, onClose, onSave, initialValues }: SshConnectionModalProps) {
+    const [hostname, setHostname] = useState(initialValues?.hostname || "");
+    const [port, setPort] = useState(initialValues?.port?.toString() || "22");
+    const [username, setUsername] = useState(initialValues?.username || "root");
+    const [privateKey, setPrivateKey] = useState(initialValues?.privateKey || "");
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+    // Update form when initialValues change (for auto-fill)
+    useEffect(() => {
+        if (initialValues) {
+            setHostname(initialValues.hostname || "");
+            setPort(initialValues.port?.toString() || "22");
+            setUsername(initialValues.username || "root");
+            setPrivateKey(initialValues.privateKey || "");
+        }
+    }, [initialValues]);
 
     if (!isOpen) return null;
 
@@ -53,6 +70,17 @@ export function SshConnectionModal({ isOpen, onClose }: SshConnectionModalProps)
             setLoading(false);
         }
     }
+
+    const handleSave = () => {
+        const config = {
+            hostname,
+            port: parseInt(port),
+            username,
+            privateKey
+        };
+        onSave?.(config);
+        onClose();
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -125,10 +153,18 @@ export function SshConnectionModal({ isOpen, onClose }: SshConnectionModalProps)
                         <Button
                             onClick={handleTestConnection}
                             disabled={loading || !hostname || !privateKey}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white min-w-[120px]"
+                            className="bg-blue-600 hover:bg-blue-500 text-white min-w-[120px]"
                         >
                             {loading ? "Handshaking..." : "Test Connection"}
                         </Button>
+                        {result?.success && onSave && (
+                            <Button
+                                onClick={handleSave}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white min-w-[120px]"
+                            >
+                                ✓ Save & Close
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

@@ -72,6 +72,57 @@ Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemle
 
 ---
 
+## 🎮 Demo Modu: Mock GPU Server ile Test
+
+io-Guard, gerçek GPU sunucularına bağlanmadan önce sistemi test edebilmeniz için **otomatik mock GPU server** sağlar. Tüm işlemleri **tamamen arayüzden** yapabilirsiniz - terminal komutlarına gerek yok!
+
+### Demo Credentials Nasıl Alınır?
+
+1. **Frontend'i Açın:** [http://localhost:3000/deploy](http://localhost:3000/deploy)
+
+2. **Live Mode Seçin:** "Live Mode ⚡" kartına tıklayın
+
+3. **Demo Credentials Alın:**
+   - **"🎮 Get Demo Server Credentials"** butonuna tıklayın
+   - Açılan modal'da mock GPU server bilgilerini göreceksiniz:
+     - **Hostname:** `mock-gpu-node`
+     - **Port:** `22`
+     - **Username:** `root`
+     - **Private Key:** ✅ Otomatik yüklenir
+
+4. **Otomatik Doldurma:**
+   - **"✨ Auto-Fill Connection"** butonuna tıklayın
+   - SSH bağlantı formu otomatik olarak dolar!
+
+5. **Bağlantı Testi:**
+   - **"Test Connection"** butonuna tıklayın
+   - Bağlantı başarılıysa ✅ indicator görünür
+
+6. **Kaydet ve Deploy:**
+   - **"✓ Save & Close"** ile bağlantıyı kaydedin
+   - Artık **"Initialise Deployment"** ile deployment başlatabilirsiniz!
+
+### Alternatif: API ile Demo Credentials
+
+Eğer manuel olarak almak isterseniz:
+
+```bash
+# Connection bilgileri
+curl http://localhost:8000/v1/connections/demo
+
+# Private key
+curl http://localhost:8000/v1/connections/demo/key
+```
+
+### Demo Server Özellikleri
+
+- ✅ **Gerçek SSH Server:** Docker container içinde çalışan gerçek bir Linux sunucusu
+- ✅ **Güvenli Test Ortamı:** Gerçek deployment akışını deneyimleyin
+- ✅ **Tam Entegrasyon:** Live deployment ile aynı workflow
+- ✅ **Sıfır Konfigürasyon:** Docker Compose ile otomatik başlar
+
+---
+
 ## 📂 Proje Yapısı
 
 ```
@@ -92,8 +143,12 @@ io-guard/
 -   [x] **Adım 1: Veri Omurgası** (Supabase Entegrasyonu) ✅
 -   [x] **Adım 2: Gerçek Piyasa** (Canlı API Verisi) ✅
 -   [x] **Adım 3: Güvenli Bağlantı** (SSH & Paramiko) ✅
--   [ ] **Adım 4: Dosya Transferi** (Lokal Yükleme & Wget) 🚧
--   [ ] **Adım 5: Canlı Yürütme** (Remote Docker Execution)
+-   [x] **Adım 4: Dosya Transferi** (Script Upload & Wget) ✅
+-   [x] **Adım 5: Canlı Yürütme** (Remote SSH Execution) ✅
+-   [x] **Adım 6: Otonom Kurtarma** (AI-Powered Error Recovery) ✅
+-   [x] **Adım 7: Demo Credentials UI** (Frontend Auto-Fill) ✅
+-   [ ] **Adım 8: SSH Key Management** (Database Storage) 🚧
+-   [ ] **Adım 9: Connection Profiles** (Saved Configs) 🚧
 
 ---
 

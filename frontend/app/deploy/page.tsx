@@ -16,6 +16,9 @@ export default function DeployPage() {
     const [logs, setLogs] = useState<string[]>([])
     const [running, setRunning] = useState(false)
     const [showSshModal, setShowSshModal] = useState(false)
+    const [showDemoModal, setShowDemoModal] = useState(false)
+    const [demoCredentials, setDemoCredentials] = useState<any>(null)
+    const [sshConfig, setSshConfig] = useState<any>(null)
     const logEndRef = useRef<HTMLDivElement>(null)
 
     const startDeployment = async () => {
@@ -77,11 +80,18 @@ export default function DeployPage() {
                             >
                                 <div className="font-semibold flex items-center">
                                     <div className={`w-4 h-4 rounded-full border mr-3 ${mode === 'simulation' ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />
-                                    Simulation Mode
+                                    Simulation Mode 🤖
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2 pl-7">
-                                    Dry-run the training on a virtual node. No credits deducted.
+                                    Test deployment on our mock GPU server. Get demo credentials below.
                                 </p>
+                                {mode === 'simulation' && (
+                                    <div className="mt-3 ml-7 space-y-2">
+                                        <p className="text-xs text-blue-400">
+                                            👉 For testing: Check your terminal for demo SSH credentials or use your own test server below.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <div
@@ -90,24 +100,60 @@ export default function DeployPage() {
                             >
                                 <div className="font-semibold flex items-center">
                                     <div className={`w-4 h-4 rounded-full border mr-3 ${mode === 'live' ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />
-                                    Live Deployment
+                                    Live Mode ⚡
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2 pl-7">
-                                    Provision real GPU hardware on io.net. Credits will be used.
+                                    Deploy to your real GPU server (or use demo below for testing).
                                 </p>
-                                {mode === 'live' && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="ml-7 mt-3 w-[calc(100%-28px)] text-xs border-dashed border-zinc-600 hover:border-emerald-500 hover:text-emerald-500"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            setShowSshModal(true)
-                                        }}
-                                    >
-                                        + Connect Remote Server
-                                    </Button>
-                                )}
+
+                                {/* Demo Credentials Button */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="ml-7 mt-3 w-[calc(100%-28px)] text-xs border-dashed border-blue-500 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300"
+                                    onClick={async (e) => {
+                                        e.stopPropagation()
+                                        try {
+                                            const [demoRes, keyRes] = await Promise.all([
+                                                fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo`),
+                                                fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo/key`)
+                                            ])
+
+                                            if (demoRes.ok && keyRes.ok) {
+                                                const demo = await demoRes.json()
+                                                const keyData = await keyRes.json()
+
+                                                setDemoCredentials({
+                                                    hostname: demo.hostname,
+                                                    port: demo.port,
+                                                    username: demo.username,
+                                                    privateKey: keyData.private_key,
+                                                    description: demo.description
+                                                })
+                                                setShowDemoModal(true)
+                                            } else {
+                                                setLogs(prev => [...prev, '❌ Failed to fetch demo credentials'])
+                                            }
+                                        } catch (err) {
+                                            setLogs(prev => [...prev, `❌ Demo error: ${err}`])
+                                        }
+                                    }}
+                                >
+                                    🎮 Get Demo Server Credentials
+                                </Button>
+
+                                {/* Connect Remote Server Button */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="ml-7 mt-2 w-[calc(100%-28px)] text-xs border-dashed border-zinc-600 hover:border-emerald-500 hover:text-emerald-500"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        setShowSshModal(true)
+                                    }}
+                                >
+                                    + Connect Remote Server
+                                </Button>
                             </div>
                         </div>
 
@@ -141,7 +187,80 @@ export default function DeployPage() {
             <SshConnectionModal
                 isOpen={showSshModal}
                 onClose={() => setShowSshModal(false)}
+                initialValues={sshConfig}
+                onSave={(config: any) => {
+                    setSshConfig(config)
+                    setLogs(prev => [...prev, `✅ Connected to ${config.hostname}:${config.port}`])
+                }}
             />
+
+            {/* Demo Credentials Modal */}
+            {showDemoModal && demoCredentials && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6">
+                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <span className="text-blue-500">🎮</span> Demo GPU Server Credentials
+                        </h2>
+
+                        <div className="space-y-4">
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 text-sm text-blue-300">
+                                <p className="mb-2">ℹ️ This is a real Docker container (mock-gpu-node)</p>
+                                <p>{demoCredentials.description}</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <span className="text-zinc-400">Hostname:</span>
+                                    <span className="col-span-2 font-mono text-white">{demoCredentials.hostname}</span>
+
+                                    <span className="text-zinc-400">Port:</span>
+                                    <span className="col-span-2 font-mono text-white">{demoCredentials.port}</span>
+
+                                    <span className="text-zinc-400">Username:</span>
+                                    <span className="col-span-2 font-mono text-white">{demoCredentials.username}</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded p-3 text-xs text-emerald-300">
+                                ✨ Click "Auto-Fill Connection" below to automatically populate the SSH form!
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowDemoModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        // Auto-fill SSH connection modal with demo credentials
+                                        setSshConfig({
+                                            hostname: demoCredentials.hostname,
+                                            port: demoCredentials.port,
+                                            username: demoCredentials.username,
+                                            privateKey: demoCredentials.privateKey
+                                        })
+                                        setShowDemoModal(false)
+                                        setShowSshModal(true)
+                                        setLogs(prev => [...prev,
+                                            `📋 Demo credentials loaded!`,
+                                            `   → Opening SSH connection modal...`,
+                                        `   → Hostname: ${demoCredentials.hostname}:${demoCredentials.port}`,
+                                        `   → Username: ${demoCredentials.username}`,
+                                            `   → Private Key: ✅ Loaded`
+                                        ])
+                                    }}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white"
+                                >
+                                    ✨ Auto-Fill Connection
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

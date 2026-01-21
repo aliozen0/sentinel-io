@@ -23,6 +23,9 @@ try:
     from agents.sniper import Sniper, GPUNode
     from agents.architect import Architect, EnvironmentConfig
     from agents.executor import Executor
+    
+    # Demo Routes
+    from routes import demo
 except ImportError:
     # Fallback for local dev if paths are tricky
     pass
@@ -42,6 +45,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register Demo Routes
+app.include_router(demo.router, prefix="/v1/connections", tags=["Demo"])
 
 # ==========================================
 # 🚀 io-Guard v1.0 API ENDPOINTS (THE NEW CORE)
