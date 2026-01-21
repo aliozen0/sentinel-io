@@ -89,28 +89,70 @@ export default function DashboardPage() {
 
       {/* Quick Actions / Recent Activity could go here */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="col-span-4 max-h-[600px] flex flex-col">
           <CardHeader>
-            <CardTitle>Market Snapshot</CardTitle>
+            <CardTitle>Market Snapshot (Live via io.net)</CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
+          <CardContent className="pl-2 pr-2 overflow-y-auto flex-1">
             {loading ? (
-              <p className="p-4 text-sm text-muted-foreground">Loading market feed...</p>
+              <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <p className="text-sm text-muted-foreground">Fetching best nodes...</p>
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 px-2">
                 {status?.sample?.map((node: any, i: number) => (
-                  <div key={i} className="flex items-center p-4 border rounded-lg bg-card/50">
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">{node.gpu_model}</p>
-                      <p className="text-sm text-muted-foreground">{node.id}</p>
+                  <div key={i} className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-900 transition-colors group">
+
+                    {/* Left: Model & ID */}
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-bold text-xs ring-1 ring-emerald-500/20">
+                        {(node.score || 0).toFixed(1)}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-zinc-200">{node.gpu_model}</p>
+                        <div className="flex items-center gap-2 text-xs text-zinc-500">
+                          <span className="font-mono bg-zinc-900 px-1 rounded text-[10px]">{node.id}</span>
+                          <span>•</span>
+                          <span>Reliability: {node.reliability}%</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="ml-auto font-medium">
-                      ${node.price_hourly}/hr
+
+                    {/* Middle: Stats */}
+                    <div className="hidden md:flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-xs text-zinc-400">Availability</p>
+                        <div className={`space-x-1 font-mono font-medium ${node.idle_nodes > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          <span>{node.idle_nodes}</span>
+                          <span className="text-zinc-600">/</span>
+                          <span className="text-zinc-500">{node.total_nodes}</span>
+                          <span className="text-[10px] ml-1 text-zinc-600">IDLE</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs text-zinc-400">Active Rentals</p>
+                        <p className="font-mono text-zinc-300">{node.hired_nodes}</p>
+                      </div>
                     </div>
+
+                    {/* Right: Price */}
+                    <div className="text-right pl-4 border-l border-zinc-800 min-w-[100px]">
+                      <div className="text-sm text-zinc-400">Hourly Rate</div>
+                      <div className="text-lg font-bold text-emerald-400">
+                        ${node.price_hourly}
+                      </div>
+                    </div>
+
                   </div>
                 ))}
+
                 {(!status?.sample || status.sample.length === 0) && (
-                  <p className="p-4 text-sm text-muted-foreground">No data available.</p>
+                  <div className="text-center py-10 text-zinc-500">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p>No market data available.</p>
+                  </div>
                 )}
               </div>
             )}

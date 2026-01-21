@@ -12,3 +12,11 @@ redis
 asyncpg
 greenlet
 websockets
+
+pytest
+
+beautifulsoup4
+fake-useragent
+
+paramiko
+cryptography

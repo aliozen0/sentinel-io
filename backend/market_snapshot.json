@@ -1,0 +1,302 @@
+[
+  {
+    "id": "12",
+    "gpu_model": "GeForce RTX 4090",
+    "price_hourly": 0.25,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 1618,
+    "idle_nodes": 75,
+    "hired_nodes": 1543
+  },
+  {
+    "id": "224",
+    "gpu_model": "H100 80GB HBM3",
+    "price_hourly": 1.19,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 152,
+    "idle_nodes": 0,
+    "hired_nodes": 152
+  },
+  {
+    "id": "247",
+    "gpu_model": "M4",
+    "price_hourly": 0.1,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 134,
+    "idle_nodes": 134,
+    "hired_nodes": 0
+  },
+  {
+    "id": "270",
+    "gpu_model": "H200",
+    "price_hourly": 1.99,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 104,
+    "idle_nodes": 0,
+    "hired_nodes": 104
+  },
+  {
+    "id": "248",
+    "gpu_model": "M4 Pro",
+    "price_hourly": 0.13,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 73,
+    "idle_nodes": 73,
+    "hired_nodes": 0
+  },
+  {
+    "id": "2",
+    "gpu_model": "GeForce RTX 3070",
+    "price_hourly": 0.15,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 50,
+    "idle_nodes": 49,
+    "hired_nodes": 1
+  },
+  {
+    "id": "3",
+    "gpu_model": "GeForce RTX 3090",
+    "price_hourly": 0.18,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 46,
+    "idle_nodes": 45,
+    "hired_nodes": 1
+  },
+  {
+    "id": "249",
+    "gpu_model": "M4 Max",
+    "price_hourly": 0.15,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 38,
+    "idle_nodes": 38,
+    "hired_nodes": 0
+  },
+  {
+    "id": "196",
+    "gpu_model": "M3 Pro",
+    "price_hourly": 0.13,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 32,
+    "idle_nodes": 32,
+    "hired_nodes": 0
+  },
+  {
+    "id": "190",
+    "gpu_model": "M3 Max",
+    "price_hourly": 0.14,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 32,
+    "idle_nodes": 32,
+    "hired_nodes": 0
+  },
+  {
+    "id": "195",
+    "gpu_model": "M3",
+    "price_hourly": 0.1,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 26,
+    "idle_nodes": 26,
+    "hired_nodes": 0
+  },
+  {
+    "id": "14",
+    "gpu_model": "GeForce RTX 3080 Ti",
+    "price_hourly": 0.17,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 25,
+    "idle_nodes": 25,
+    "hired_nodes": 0
+  },
+  {
+    "id": "9",
+    "gpu_model": "GeForce RTX 3060",
+    "price_hourly": 0.13,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 23,
+    "idle_nodes": 23,
+    "hired_nodes": 0
+  },
+  {
+    "id": "15",
+    "gpu_model": "GeForce RTX 4080",
+    "price_hourly": 0.2,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 21,
+    "idle_nodes": 21,
+    "hired_nodes": 0
+  },
+  {
+    "id": "10",
+    "gpu_model": "GeForce RTX 4070",
+    "price_hourly": 0.19,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 20,
+    "idle_nodes": 20,
+    "hired_nodes": 0
+  },
+  {
+    "id": "34",
+    "gpu_model": "GeForce RTX 4070 Ti",
+    "price_hourly": 0.19,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 18,
+    "idle_nodes": 18,
+    "hired_nodes": 0
+  },
+  {
+    "id": "8",
+    "gpu_model": "RTX A4000",
+    "price_hourly": 0.14,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 18,
+    "idle_nodes": 18,
+    "hired_nodes": 0
+  },
+  {
+    "id": "35",
+    "gpu_model": "Tesla V100-SXM2-16GB",
+    "price_hourly": 0.19,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 16,
+    "idle_nodes": 16,
+    "hired_nodes": 0
+  },
+  {
+    "id": "17",
+    "gpu_model": "GeForce RTX 4060",
+    "price_hourly": 0.18,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 15,
+    "idle_nodes": 15,
+    "hired_nodes": 0
+  },
+  {
+    "id": "16",
+    "gpu_model": "GeForce RTX 4060 Ti",
+    "price_hourly": 0.18,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 14,
+    "idle_nodes": 14,
+    "hired_nodes": 0
+  },
+  {
+    "id": "11",
+    "gpu_model": "GeForce RTX 3080",
+    "price_hourly": 0.17,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 12,
+    "idle_nodes": 12,
+    "hired_nodes": 0
+  },
+  {
+    "id": "4",
+    "gpu_model": "GeForce RTX 3060 Ti",
+    "price_hourly": 0.14,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 11,
+    "idle_nodes": 11,
+    "hired_nodes": 0
+  },
+  {
+    "id": "36",
+    "gpu_model": "Tesla V100-SXM2-32GB",
+    "price_hourly": 0.39,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 8,
+    "idle_nodes": 8,
+    "hired_nodes": 0
+  },
+  {
+    "id": "250",
+    "gpu_model": "GeForce RTX 5090",
+    "price_hourly": 0.89,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 8,
+    "idle_nodes": 0,
+    "hired_nodes": 8
+  },
+  {
+    "id": "6",
+    "gpu_model": "Tesla T4",
+    "price_hourly": 0.05,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 7,
+    "idle_nodes": 7,
+    "hired_nodes": 0
+  },
+  {
+    "id": "26",
+    "gpu_model": "RTX A6000",
+    "price_hourly": 0.32,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 7,
+    "idle_nodes": 7,
+    "hired_nodes": 0
+  },
+  {
+    "id": "5",
+    "gpu_model": "GeForce RTX 3070 Ti",
+    "price_hourly": 0.15,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 6,
+    "idle_nodes": 6,
+    "hired_nodes": 0
+  },
+  {
+    "id": "22",
+    "gpu_model": "GeForce RTX 3090 Ti",
+    "price_hourly": 0.19,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 2,
+    "idle_nodes": 2,
+    "hired_nodes": 0
+  },
+  {
+    "id": "198",
+    "gpu_model": "RTX 4000",
+    "price_hourly": 0.14,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 1,
+    "idle_nodes": 1,
+    "hired_nodes": 0
+  },
+  {
+    "id": "21",
+    "gpu_model": "RTX A5000",
+    "price_hourly": 0.16,
+    "reliability": 98.0,
+    "speed": 90.0,
+    "total_nodes": 1,
+    "idle_nodes": 1,
+    "hired_nodes": 0
+  }
+]

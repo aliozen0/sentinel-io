@@ -32,3 +32,13 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   content TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- SSH Anahtarları (Adım 3 için)
+CREATE TABLE IF NOT EXISTS ssh_keys (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users,
+  key_name TEXT, -- Kullanıcının verdiği isim (örn: "AWS GPU Node")
+  private_key_enc TEXT, -- Şifrelenmiş Private Key (Gelecekte entegre edilecek)
+  public_key TEXT, -- Public Key (Sunucuya eklenecek olan)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

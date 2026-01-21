@@ -8,6 +8,9 @@ services:
       - .env
     networks:
       - io_guard_net
+    volumes:
+      - ./backend:/app
+      - ./tests:/app/tests
 
   frontend:
     build: ./frontend

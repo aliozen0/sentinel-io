@@ -85,6 +85,14 @@ async def analyze_code(request: AnalyzeRequest):
         "market_recommendations": [node.dict() for node in best_nodes]
     }
 
+# ...
+try:
+    from db.client import get_db
+except ImportError:
+    get_db = lambda: None
+
+# ... (inside chat_agent)
+
 @app.post("/v1/chat")
 async def chat_agent(request: ChatRequest):
     """
@@ -97,8 +105,18 @@ async def chat_agent(request: ChatRequest):
     last_msg = request.messages[-1]
     user_content = last_msg['content']
     
-    # 1. (Mock) Persist User Message
-    # In prod: supabase.table('chat_messages').insert({role: 'user', content: user_content})
+    # 1. Persist User Message (Real DB)
+    supabase = get_db()
+    if supabase:
+        try:
+            supabase.table("chat_messages").insert({
+                "role": "user",
+                "content": user_content,
+                # "user_id": ... (Add auth context later)
+            }).execute()
+        except Exception as e:
+            logger.error(f"DB Error (User): {e}")
+
     logger.info(f"Chat User: {user_content}")
     
     # 2. Updated System Prompt for General + Tech capabilities
@@ -115,7 +133,16 @@ async def chat_agent(request: ChatRequest):
         user_prompt=user_content
     )
     
-    # 3. (Mock) Persist AI Response
+    # 3. Persist AI Response (Real DB)
+    if supabase:
+        try:
+            supabase.table("chat_messages").insert({
+                "role": "assistant",
+                "content": response
+            }).execute()
+        except Exception as e:
+            logger.error(f"DB Error (AI): {e}")
+
     logger.info(f"Chat AI: {response}")
     
     return {"role": "assistant", "content": response}
@@ -126,7 +153,7 @@ async def market_status():
     [v1.0] Returns cached market data or status.
     """
     data = Sniper._get_market_data()
-    return {"source": "live/cache", "node_count": len(data), "sample": data[:2]}
+    return {"source": "live/cache", "node_count": len(data), "sample": data[:10]}
 
 @app.post("/v1/deploy/simulate")
 async def deploy_simulate(request: DeploySimulateRequest):
@@ -143,6 +170,33 @@ async def deploy_live(payload: dict):
     [v1.0] Mock for Live Deployment.
     """
     return {"job_id": "live_999", "status": "pending_ssh_connection"}
+
+class SSHConnectionRequest(BaseModel):
+    hostname: str
+    username: str
+    private_key: str
+    port: int = 22
+
+@app.post("/v1/connection/test")
+async def test_ssh_connection(request: SSHConnectionRequest):
+    """
+    [v1.0] Tests SSH connection to a remote node.
+    """
+    try:
+        # Import internally to avoid top-level crash if paramiko missing
+        from services.ssh_manager import SSHManager
+        success, message = await SSHManager.test_connection(
+            request.hostname, 
+            request.username, 
+            request.private_key, 
+            request.port
+        )
+        return {"success": success, "message": message}
+    except ImportError:
+        return {"success": False, "message": "SSH Module (Paramiko) missing. Please rebuild backend."}
+    except Exception as e:
+        logger.error(f"SSH Test Error: {e}")
+        return {"success": False, "message": f"Server Error: {str(e)}"}
 
 @app.websocket("/ws/logs/{job_id}")
 async def websocket_logs(websocket: WebSocket, job_id: str):

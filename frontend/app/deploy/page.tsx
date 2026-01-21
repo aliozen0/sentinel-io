@@ -8,11 +8,14 @@ import { Terminal, Play, Radio, Loader2 } from "lucide-react"
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const WS_URL = NEXT_PUBLIC_API_URL.replace("http", "ws")
 
+import { SshConnectionModal } from "@/components/ssh-connection-modal"
+
 export default function DeployPage() {
     const [mode, setMode] = useState<"simulation" | "live">("simulation")
     const [jobId, setJobId] = useState<string | null>(null)
     const [logs, setLogs] = useState<string[]>([])
     const [running, setRunning] = useState(false)
+    const [showSshModal, setShowSshModal] = useState(false)
     const logEndRef = useRef<HTMLDivElement>(null)
 
     const startDeployment = async () => {
@@ -92,6 +95,19 @@ export default function DeployPage() {
                                 <p className="text-xs text-muted-foreground mt-2 pl-7">
                                     Provision real GPU hardware on io.net. Credits will be used.
                                 </p>
+                                {mode === 'live' && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="ml-7 mt-3 w-[calc(100%-28px)] text-xs border-dashed border-zinc-600 hover:border-emerald-500 hover:text-emerald-500"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setShowSshModal(true)
+                                        }}
+                                    >
+                                        + Connect Remote Server
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
@@ -121,6 +137,11 @@ export default function DeployPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <SshConnectionModal
+                isOpen={showSshModal}
+                onClose={() => setShowSshModal(false)}
+            />
         </div>
     )
 }
