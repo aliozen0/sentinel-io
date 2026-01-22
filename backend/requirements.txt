@@ -21,3 +21,4 @@ fake-useragent
 
 paramiko
 cryptography
+pyjwt
