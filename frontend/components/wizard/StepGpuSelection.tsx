@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Cpu, DollarSign, Server, ArrowLeft, ArrowRight, Check, ChevronRight, Info, ChevronDown, ChevronUp, Zap, HardDrive, Gauge } from "lucide-react"
+import { Cpu, DollarSign, Server, ArrowLeft, ArrowRight, Check, ChevronRight, Info, ChevronDown, ChevronUp, Zap, HardDrive, Gauge, GitCompare } from "lucide-react"
+import GpuComparisonModal from "@/components/wizard/GpuComparisonModal"
 
 interface StepGpuSelectionProps {
     analysisResult: any
@@ -12,13 +13,26 @@ interface StepGpuSelectionProps {
 }
 
 export default function StepGpuSelection({ analysisResult, onSelect, onBack }: StepGpuSelectionProps) {
-    const [selectedForComparison, setSelectedForComparison] = useState<number | null>(null)
+    const [selectedForComparison, setSelectedForComparison] = useState<number[]>([])
     const [showDetails, setShowDetails] = useState<number | null>(null)
+    const [showCompareModal, setShowCompareModal] = useState(false)
 
     if (!analysisResult) return null
 
     const recommendedNodes = analysisResult.market_recommendations || []
     const summary = analysisResult.summary || {}
+
+    const toggleComparison = (index: number) => {
+        setSelectedForComparison(prev => {
+            if (prev.includes(index)) {
+                return prev.filter(i => i !== index)
+            }
+            if (prev.length >= 3) return prev // Max 3
+            return [...prev, index]
+        })
+    }
+
+    const comparisonGpus = selectedForComparison.map(i => recommendedNodes[i])
 
     return (
         <div className="h-full flex flex-col p-6 space-y-4">
@@ -66,10 +80,30 @@ export default function StepGpuSelection({ analysisResult, onSelect, onBack }: S
             </Card>
 
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Uygun GPU Seçenekleri</h2>
-                <Button variant="outline" onClick={onBack} size="sm">
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Geri
-                </Button>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold">Uygun GPU Seçenekleri</h2>
+                    {selectedForComparison.length > 0 && (
+                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                            {selectedForComparison.length} seçili
+                        </span>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    {selectedForComparison.length >= 2 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCompareModal(true)}
+                            className="border-purple-500/30 text-purple-300 hover:bg-purple-500/20"
+                        >
+                            <GitCompare className="w-4 h-4 mr-2" />
+                            Karşılaştır ({selectedForComparison.length})
+                        </Button>
+                    )}
+                    <Button variant="outline" onClick={onBack} size="sm">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Geri
+                    </Button>
+                </div>
             </div>
 
             {/* GPU Cards */}
@@ -77,11 +111,14 @@ export default function StepGpuSelection({ analysisResult, onSelect, onBack }: S
                 {recommendedNodes.map((node: any, i: number) => {
                     const isExpanded = showDetails === i
                     const isRecommended = i === 0
+                    const isSelected = selectedForComparison.includes(i)
 
                     return (
                         <Card
                             key={i}
-                            className={`transition-all hover:shadow-lg relative overflow-hidden ${isRecommended ? 'border-emerald-500/50 bg-emerald-500/5' : 'bg-zinc-900/50 border-zinc-800 hover:border-blue-500'
+                            className={`transition-all hover:shadow-lg relative overflow-hidden ${isSelected ? 'border-purple-500/50 ring-1 ring-purple-500/30' :
+                                    isRecommended ? 'border-emerald-500/50 bg-emerald-500/5' :
+                                        'bg-zinc-900/50 border-zinc-800 hover:border-blue-500'
                                 }`}
                         >
                             {isRecommended && (
@@ -89,7 +126,19 @@ export default function StepGpuSelection({ analysisResult, onSelect, onBack }: S
                                     ⭐ ÖNERİLEN
                                 </div>
                             )}
-                            <CardHeader className="pb-3">
+                            {/* Comparison Checkbox */}
+                            <div className="absolute top-3 left-3">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggleComparison(i)}
+                                        className="w-4 h-4 rounded border-zinc-600 text-purple-500 focus:ring-purple-500 bg-zinc-800"
+                                    />
+                                    <span className="text-[10px] text-zinc-400">Karşılaştır</span>
+                                </label>
+                            </div>
+                            <CardHeader className="pb-3 pt-8">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <CardTitle className="text-lg flex items-center gap-2">
@@ -224,6 +273,15 @@ export default function StepGpuSelection({ analysisResult, onSelect, onBack }: S
                     <p className="text-center">Uygun GPU bulunamadı.<br />Lütfen analiz parametrelerini gözden geçirin.</p>
                 </div>
             )}
+
+            {/* GPU Comparison Modal */}
+            <GpuComparisonModal
+                isOpen={showCompareModal}
+                onClose={() => setShowCompareModal(false)}
+                gpus={comparisonGpus}
+                onSelect={onSelect}
+                analysisResult={analysisResult}
+            />
         </div>
     )
 }

@@ -162,7 +162,7 @@ async def analyze_code(request: AnalyzeRequest):
         }
     })
     
-    env_config = Architect.plan_environment(
+    env_config = await Architect.plan_environment(
         framework=audit_report.framework,
         code=request.code,
         vram_gb=audit_report.vram_min_gb
@@ -388,18 +388,54 @@ async def test_ssh_connection(request: SSHConnectionRequest):
         logger.error(f"SSH Test Error: {e}")
         return {"success": False, "message": f"Server Error: {str(e)}"}
 
-
 # --- File Upload ---
+
+ALLOWED_EXTENSIONS = {'.py', '.txt', '.yaml', '.yml', '.json', '.zip'}
+
+def get_file_type(filename: str) -> str:
+    """Determine file type from extension."""
+    if filename.endswith('.py'):
+        return 'script'
+    elif filename.endswith('.txt'):
+        return 'requirements'
+    elif filename.endswith(('.yaml', '.yml')):
+        return 'config'
+    elif filename.endswith('.json'):
+        return 'config'
+    elif filename.endswith('.zip'):
+        return 'archive'
+    return 'other'
+
+def find_entry_point(directory: str) -> Optional[str]:
+    """Find the main Python script in a directory."""
+    # Priority: main.py > train.py > run.py > first .py file
+    priority_names = ['main.py', 'train.py', 'run.py', 'app.py', 'script.py']
+    
+    for name in priority_names:
+        path = os.path.join(directory, name)
+        if os.path.exists(path):
+            return name
+    
+    # Fallback to first .py file
+    for f in os.listdir(directory):
+        if f.endswith('.py'):
+            return f
+    
+    return None
 
 @app.post("/v1/upload")
 async def upload_file(file: UploadFile = File(...)):
     """
-    [v1.0] Uploads a Python script for remote execution.
-    Only accepts .py files for security.
+    [v1.0] Uploads a single file for remote execution.
+    Accepts: .py, .txt, .yaml, .yml, .json, .zip
     """
-    # Security: Only allow Python files
-    if not file.filename.endswith('.py'):
-        raise HTTPException(status_code=400, detail="Only Python (.py) files are allowed")
+    # Security: Check allowed extensions
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Only {', '.join(ALLOWED_EXTENSIONS)} files are allowed"
+        )
     
     # Generate unique filename
     file_id = str(uuid.uuid4())[:8]
@@ -412,8 +448,6 @@ async def upload_file(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             f.write(contents)
         
-        # Generate URL
-        # Note: In Docker, external access is via localhost:8000
         file_url = f"http://localhost:8000/uploads/{safe_filename}"
         
         logger.info(f"File uploaded: {safe_filename} ({len(contents)} bytes)")
@@ -424,31 +458,150 @@ async def upload_file(file: UploadFile = File(...)):
             "original_name": file.filename,
             "size": len(contents),
             "url": file_url,
-            "local_path": file_path
+            "local_path": file_path,
+            "type": get_file_type(file.filename)
         }
     except Exception as e:
         logger.error(f"Upload error: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+@app.post("/v1/upload/project")
+async def upload_project(files: List[UploadFile] = File(...)):
+    """
+    [v1.0] Uploads multiple files or a ZIP archive as a project.
+    Creates a project directory and extracts files.
+    Returns project metadata including entry point.
+    """
+    import zipfile
+    import io as io_module
+    
+    project_id = str(uuid.uuid4())[:8]
+    project_dir = os.path.join(UPLOADS_DIR, f"project_{project_id}")
+    os.makedirs(project_dir, exist_ok=True)
+    
+    uploaded_files = []
+    
+    try:
+        for file in files:
+            ext = os.path.splitext(file.filename)[1].lower()
+            
+            if ext == '.zip':
+                # Extract ZIP archive
+                contents = await file.read()
+                try:
+                    with zipfile.ZipFile(io_module.BytesIO(contents), 'r') as zip_ref:
+                        # Security: Check for path traversal
+                        for member in zip_ref.namelist():
+                            if member.startswith('..') or member.startswith('/'):
+                                raise HTTPException(status_code=400, detail="Invalid ZIP: path traversal detected")
+                        
+                        zip_ref.extractall(project_dir)
+                        
+                        # List extracted files
+                        for root, dirs, files_list in os.walk(project_dir):
+                            for f in files_list:
+                                rel_path = os.path.relpath(os.path.join(root, f), project_dir)
+                                full_path = os.path.join(root, f)
+                                uploaded_files.append({
+                                    "filename": rel_path,
+                                    "size": os.path.getsize(full_path),
+                                    "type": get_file_type(f),
+                                    "source": "zip"
+                                })
+                        
+                        logger.info(f"ZIP extracted: {file.filename} -> {len(uploaded_files)} files")
+                except zipfile.BadZipFile:
+                    raise HTTPException(status_code=400, detail="Invalid ZIP file")
+            
+            elif ext in ALLOWED_EXTENSIONS:
+                # Regular file
+                safe_filename = file.filename.replace(' ', '_')
+                file_path = os.path.join(project_dir, safe_filename)
+                
+                contents = await file.read()
+                with open(file_path, "wb") as f:
+                    f.write(contents)
+                
+                uploaded_files.append({
+                    "filename": safe_filename,
+                    "size": len(contents),
+                    "type": get_file_type(file.filename),
+                    "source": "upload"
+                })
+                
+                logger.info(f"File added to project: {safe_filename}")
+            else:
+                logger.warning(f"Skipped unsupported file: {file.filename}")
+        
+        # Find entry point
+        entry_point = find_entry_point(project_dir)
+        
+        # Count files by type
+        script_count = sum(1 for f in uploaded_files if f['type'] == 'script')
+        
+        return {
+            "success": True,
+            "project_id": project_id,
+            "project_dir": project_dir,
+            "files": uploaded_files,
+            "file_count": len(uploaded_files),
+            "script_count": script_count,
+            "entry_point": entry_point,
+            "has_requirements": any(f['type'] == 'requirements' for f in uploaded_files)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Project upload error: {e}")
+        # Cleanup on error
+        import shutil
+        if os.path.exists(project_dir):
+            shutil.rmtree(project_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
 @app.get("/v1/uploads")
 async def list_uploads():
     """
-    [v1.0] Lists all uploaded files.
+    [v1.0] Lists all uploaded files and projects.
     """
     try:
         files = []
-        for filename in os.listdir(UPLOADS_DIR):
-            if filename.endswith('.py'):
-                filepath = os.path.join(UPLOADS_DIR, filename)
-                files.append({
-                    "filename": filename,
-                    "size": os.path.getsize(filepath),
-                    "url": f"http://localhost:8000/uploads/{filename}"
+        projects = []
+        
+        for item in os.listdir(UPLOADS_DIR):
+            item_path = os.path.join(UPLOADS_DIR, item)
+            
+            if os.path.isdir(item_path) and item.startswith('project_'):
+                # It's a project directory
+                project_files = []
+                for root, dirs, files_list in os.walk(item_path):
+                    for f in files_list:
+                        rel_path = os.path.relpath(os.path.join(root, f), item_path)
+                        project_files.append(rel_path)
+                
+                projects.append({
+                    "project_id": item.replace('project_', ''),
+                    "path": item_path,
+                    "file_count": len(project_files),
+                    "entry_point": find_entry_point(item_path)
                 })
-        return {"files": files}
+            else:
+                # Regular file
+                ext = os.path.splitext(item)[1].lower()
+                if ext in ALLOWED_EXTENSIONS:
+                    files.append({
+                        "filename": item,
+                        "size": os.path.getsize(item_path),
+                        "url": f"http://localhost:8000/uploads/{item}",
+                        "type": get_file_type(item)
+                    })
+        
+        return {"files": files, "projects": projects}
     except Exception as e:
-        return {"files": [], "error": str(e)}
+        return {"files": [], "projects": [], "error": str(e)}
 
 
 # --- Remote Execution ---
@@ -537,6 +690,117 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
         
     except Exception as e:
         logger.error(f"Execution error: {e}")
+        await websocket.send_text(f"❌ Error: {str(e)}")
+    finally:
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
+# --- Project Execution ---
+
+class ExecuteProjectRequest(BaseModel):
+    hostname: str
+    username: str
+    port: int = 22
+    auth_type: str = "key"
+    private_key: Optional[str] = None
+    password: Optional[str] = None
+    passphrase: Optional[str] = None
+    project_dir: str  # Local path to the project directory
+    entry_point: str  # Main script to execute (e.g., "main.py")
+    install_requirements: bool = True
+
+
+@app.post("/v1/deploy/project")
+async def deploy_project(request: ExecuteProjectRequest):
+    """
+    [v1.0] Uploads a project to remote server and executes it.
+    Supports: Multiple files, requirements.txt installation, entry point execution.
+    """
+    if not os.path.exists(request.project_dir):
+        raise HTTPException(status_code=404, detail="Project directory not found")
+    
+    entry_path = os.path.join(request.project_dir, request.entry_point)
+    if not os.path.exists(entry_path):
+        raise HTTPException(status_code=404, detail=f"Entry point '{request.entry_point}' not found in project")
+    
+    job_id = f"proj_{str(uuid.uuid4())[:8]}"
+    
+    if not hasattr(app, 'job_configs'):
+        app.job_configs = {}
+    
+    app.job_configs[job_id] = {
+        "type": "project",
+        "hostname": request.hostname,
+        "username": request.username,
+        "port": request.port,
+        "auth_type": request.auth_type,
+        "private_key": request.private_key,
+        "password": request.password,
+        "passphrase": request.passphrase,
+        "project_dir": request.project_dir,
+        "entry_point": request.entry_point,
+        "install_requirements": request.install_requirements,
+        "status": "pending"
+    }
+    
+    logger.info(f"Project execution job created: {job_id}")
+    
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "message": "Connect to WebSocket /ws/execute-project/{job_id} for logs"
+    }
+
+
+@app.websocket("/ws/execute-project/{job_id}")
+async def websocket_execute_project(websocket: WebSocket, job_id: str):
+    """
+    [v1.0] Real-time project execution logs via WebSocket.
+    Uploads entire project, installs requirements, and executes entry point.
+    """
+    await websocket.accept()
+    
+    try:
+        if not hasattr(app, 'job_configs') or job_id not in app.job_configs:
+            await websocket.send_text("❌ Job not found")
+            await websocket.close()
+            return
+        
+        config = app.job_configs[job_id]
+        
+        if config.get("type") != "project":
+            await websocket.send_text("❌ Invalid job type for this endpoint")
+            await websocket.close()
+            return
+        
+        config["status"] = "running"
+        
+        await websocket.send_text(f"🚀 Starting project job: {job_id}")
+        
+        from services.ssh_manager import SSHManager
+        
+        async for line in SSHManager.upload_project_and_execute(
+            hostname=config["hostname"],
+            username=config["username"],
+            project_dir=config["project_dir"],
+            entry_point=config["entry_point"],
+            port=config["port"],
+            auth_type=config["auth_type"],
+            private_key=config.get("private_key"),
+            password=config.get("password"),
+            passphrase=config.get("passphrase"),
+            install_requirements=config.get("install_requirements", True)
+        ):
+            await websocket.send_text(line)
+        
+        config["status"] = "completed"
+        await websocket.send_text(f"✅ Project job {job_id} completed")
+        
+    except Exception as e:
+        logger.error(f"Project execution error: {e}")
         await websocket.send_text(f"❌ Error: {str(e)}")
     finally:
         try:

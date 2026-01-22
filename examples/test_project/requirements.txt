@@ -1,0 +1,19 @@
+# GPU Performance Benchmark - Requirements
+# =========================================
+# Bu proje minimum bağımlılık ile çalışacak şekilde tasarlandı.
+# Aşağıdaki paketler opsiyonel - yorum satırını kaldırarak etkinleştirin.
+
+# Core Dependencies (opsiyonel)
+numpy>=1.21.0          # Hızlı matrix işlemleri için
+scipy>=1.7.0           # İleri düzey matematik için
+
+# GPU Support (opsiyonel)
+# torch>=2.0.0           # PyTorch GPU desteği
+# tensorflow>=2.10.0     # TensorFlow GPU desteği
+
+# Monitoring & Logging (opsiyonel)
+psutil>=5.9.0          # Sistem kaynak izleme
+python-dotenv>=1.0.0   # .env dosyası desteği
+
+# Note: Bu test projesi pure Python ile çalışır.
+# Gerçek GPU benchmark için numpy veya torch önerilir.

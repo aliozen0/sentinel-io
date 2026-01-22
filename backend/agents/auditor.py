@@ -26,7 +26,8 @@ class Auditor:
     
     SYSTEM_PROMPT = """
     You are a Senior AI Engineer & Code Auditor. 
-    Analyze the provided Python training code.
+    Analyze the provided Python training code. The input may contain multiple files concatenated with headers like '# === FILE: name ==='.
+    
     Return ONLY a valid JSON object matching this schema:
     {
         "vram_min_gb": int, 
@@ -35,7 +36,12 @@ class Auditor:
         "critical_issues": ["issue1", "issue2"],
         "suggestions": ["suggestion1"]
     }
-    If the code is extremely broken or malicious, set health_score to 0.
+    
+    Guidelines:
+    - If code uses 'cpu', estimate VRAM as if it were running on a standard GPU (e.g., batch size * model size).
+    - Do NOT hallucinate 'missing imports' for files that are present in the context (check the FILE headers).
+    - If the code is extremely broken or malicious, set health_score to 0.
+    
     Do NOT return markdown formatting like ```json ... ```. Just the raw JSON string.
     """
 
@@ -50,7 +56,7 @@ class Auditor:
             logger.info(f"Sending code to LLM ({model or 'default'}) for audit...")
             llm_response = await ask_io_intelligence_async(
                 system_prompt=Auditor.SYSTEM_PROMPT,
-                user_prompt=f"CODE:\n{code[:8000]}",  # Truncate if too long
+                user_prompt=f"CODE PROJECT CONTEXT:\n{code[:32000]}",  # Increased limit for projects
                 model=model
             )
             

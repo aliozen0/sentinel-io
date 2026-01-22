@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, Server, Rocket, KeyRound, ExternalLink, Copy, CheckCircle2, ArrowLeft, Info, ChevronDown, ChevronUp, Upload, FileCode, AlertTriangle, XCircle } from "lucide-react"
 import { SshConnectionModal } from "@/components/ssh-connection-modal"
+import { SshConfig } from "@/lib/wizard-types"
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -13,19 +14,50 @@ interface StepDeploymentProps {
     analysisResult?: any
     onReady: (config: { sshConfig: any, fileInfo: any }) => void
     onBack: () => void
+    // SSH state lifted from parent for persistence
+    sshConfig: SshConfig | null
+    setSshConfig: (config: SshConfig | null) => void
+    connectionVerified: boolean
+    setConnectionVerified: (verified: boolean) => void
+    // File state lifted
+    initialFileInfo?: any
+    setFileInfo?: (info: any) => void
 }
 
-export default function StepDeployment({ selectedGpu, analysisResult, onReady, onBack }: StepDeploymentProps) {
+export default function StepDeployment({
+    selectedGpu,
+    analysisResult,
+    onReady,
+    onBack,
+    sshConfig,
+    setSshConfig,
+    connectionVerified,
+    setConnectionVerified,
+    initialFileInfo,
+    setFileInfo
+}: StepDeploymentProps) {
     const [showSshModal, setShowSshModal] = useState(false)
-    const [sshConfig, setSshConfig] = useState<any>(null)
-    const [connectionVerified, setConnectionVerified] = useState(false)
     const [loadingDemo, setLoadingDemo] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [uploadedFileInfo, setUploadedFileInfo] = useState<any>(null)
+    const [uploadedFileInfo, setUploadedFileInfo] = useState<any>(initialFileInfo || null)
     const [testingConnection, setTestingConnection] = useState(false)
     const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean, message: string } | null>(null)
     const [showConnectionDetails, setShowConnectionDetails] = useState(false)
-    const [showUploadDetails, setShowUploadDetails] = useState(false)
+    const [showUploadDetails, setShowUploadDetails] = useState(initialFileInfo ? true : false)
+
+    // Sync from props
+    useEffect(() => {
+        if (initialFileInfo) {
+            setUploadedFileInfo(initialFileInfo)
+            setShowUploadDetails(true)
+        }
+    }, [initialFileInfo])
+
+    // Update parent file info when local changes
+    const handleSetUploadedFileInfo = (info: any) => {
+        setUploadedFileInfo(info)
+        if (setFileInfo) setFileInfo(info)
+    }
 
     const fetchDemoCredentials = async () => {
         setLoadingDemo(true)
@@ -42,7 +74,7 @@ export default function StepDeployment({ selectedGpu, analysisResult, onReady, o
                 port: demoData.port,
                 username: demoData.username,
                 privateKey: keyData.private_key,
-                authType: 'key'
+                authType: 'key' as const
             }
             setSshConfig(config)
             setShowSshModal(true)
@@ -117,7 +149,7 @@ export default function StepDeployment({ selectedGpu, analysisResult, onReady, o
                             <div className="flex-1">
                                 <div>SSH Bağlantısı</div>
                                 <div className="text-xs text-zinc-400 font-normal">
-                                    {connectionVerified ? `✓ ${sshConfig.username}@${sshConfig.hostname}` : "Henüz bağlanılmadı"}
+                                    {connectionVerified && sshConfig ? `✓ ${sshConfig.username}@${sshConfig.hostname}` : "Henüz bağlanılmadı"}
                                 </div>
                             </div>
                             {showConnectionDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -234,28 +266,67 @@ export default function StepDeployment({ selectedGpu, analysisResult, onReady, o
                                     Önce SSH bağlantısı yapın
                                 </div>
                             ) : !uploadedFileInfo ? (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
+                                    <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-300">
+                                        <strong>Desteklenen:</strong> .py, .txt, .yaml, .yml, .json, .zip
+                                    </div>
                                     <input
                                         id="wizard-upload"
                                         type="file"
                                         className="hidden"
-                                        accept=".py"
+                                        accept=".py,.txt,.yaml,.yml,.json,.zip"
+                                        multiple
                                         onChange={async (e) => {
-                                            const file = e.target.files?.[0]
-                                            if (!file) return
+                                            const files = e.target.files
+                                            if (!files || files.length === 0) return
                                             setUploading(true)
                                             try {
                                                 const formData = new FormData()
-                                                formData.append('file', file)
-                                                const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
-                                                    method: 'POST',
-                                                    body: formData
-                                                })
-                                                if (res.ok) {
+
+                                                // Use project endpoint for multiple files or ZIP
+                                                if (files.length > 1 || files[0].name.endsWith('.zip')) {
+                                                    for (let i = 0; i < files.length; i++) {
+                                                        formData.append('files', files[i])
+                                                    }
+                                                    console.log('Uploading to /v1/upload/project:', files.length, 'files')
+                                                    const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload/project`, {
+                                                        method: 'POST',
+                                                        body: formData
+                                                    })
                                                     const data = await res.json()
-                                                    setUploadedFileInfo(data)
+                                                    if (res.ok) {
+                                                        console.log('Upload success:', data)
+                                                        handleSetUploadedFileInfo({
+                                                            ...data,
+                                                            isProject: true,
+                                                            filename: `${data.file_count} dosya`,
+                                                            local_path: data.project_dir
+                                                        })
+                                                    } else {
+                                                        console.error('Upload failed:', data)
+                                                        alert(`Yükleme hatası: ${data.detail || JSON.stringify(data)}`)
+                                                    }
+                                                } else {
+                                                    // Single file - use simple upload
+                                                    formData.append('file', files[0])
+                                                    console.log('Uploading single file:', files[0].name)
+                                                    const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
+                                                        method: 'POST',
+                                                        body: formData
+                                                    })
+                                                    const data = await res.json()
+                                                    if (res.ok) {
+                                                        console.log('Upload success:', data)
+                                                        handleSetUploadedFileInfo(data)
+                                                    } else {
+                                                        console.error('Upload failed:', data)
+                                                        alert(`Yükleme hatası: ${data.detail || JSON.stringify(data)}`)
+                                                    }
                                                 }
-                                            } catch (err) { console.error(err) }
+                                            } catch (err: any) {
+                                                console.error('Network error:', err)
+                                                alert(`Bağlantı hatası: ${err.message || 'Backend\'e ulaşılamıyor. Docker çalışıyor mu?'}`)
+                                            }
                                             finally { setUploading(false) }
                                         }}
                                     />
@@ -265,17 +336,29 @@ export default function StepDeployment({ selectedGpu, analysisResult, onReady, o
                                         onClick={() => document.getElementById('wizard-upload')?.click()}
                                     >
                                         {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                                        Python Dosyası Seç ve Yükle
+                                        Dosya veya Proje Yükle
                                     </Button>
+                                    <p className="text-[10px] text-zinc-500 text-center">Birden fazla dosya veya ZIP arşivi seçebilirsiniz</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs text-emerald-300 flex items-center gap-2">
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        Dosya başarıyla yüklendi!
+                                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs text-emerald-300">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            <span className="font-medium">
+                                                {uploadedFileInfo.isProject
+                                                    ? `Proje yüklendi (${uploadedFileInfo.file_count} dosya)`
+                                                    : 'Dosya yüklendi!'}
+                                            </span>
+                                        </div>
+                                        {uploadedFileInfo.entry_point && (
+                                            <div className="text-[10px] text-emerald-400 ml-6">
+                                                Entry point: <code className="bg-emerald-500/20 px-1 rounded">{uploadedFileInfo.entry_point}</code>
+                                            </div>
+                                        )}
                                     </div>
-                                    <Button variant="outline" size="sm" className="w-full" onClick={() => { setUploadedFileInfo(null); document.getElementById('wizard-upload')?.click(); }}>
-                                        Farklı Dosya Yükle
+                                    <Button variant="outline" size="sm" className="w-full" onClick={() => { handleSetUploadedFileInfo(null); }}>
+                                        Farklı Dosya/Proje Yükle
                                     </Button>
                                 </div>
                             )}
@@ -303,9 +386,9 @@ export default function StepDeployment({ selectedGpu, analysisResult, onReady, o
             <SshConnectionModal
                 isOpen={showSshModal}
                 onClose={() => setShowSshModal(false)}
-                initialValues={sshConfig}
+                initialValues={sshConfig ?? undefined}
                 onSave={(config) => {
-                    setSshConfig(config)
+                    setSshConfig(config as SshConfig)
                     setShowSshModal(false)
                     setConnectionTestResult(null)
                     setConnectionVerified(false)

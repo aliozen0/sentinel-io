@@ -2,7 +2,7 @@
 
 **io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.1-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.2-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ---
 
@@ -14,6 +14,14 @@ Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemle
 2.  **Gerçek Gözler (Real Eyes):** `api.io.solutions` entegrasyonu ile **canlı GPU piyasasını** (Fiyat, Stok, Kiralama Durumu) anlık takip eder.
 3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
 4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
+
+### 🌟 v1.2 Yükseltmesi (Yeni!)
+
+Sistem artık çok daha yetenekli ve akıllı:
+
+-   **Akıllı Proje Analizi (Auditor v2):** Tek dosya değil, tüm projenizi (ZIP veya çoklu dosya) analiz eder. `main.py` ve `utils.py` arasındaki ilişkileri anlayarak "missing imports" hatalarını çözer.
+-   **Generative Planner (Architect LLM):** Statik kurallar yerine, projenize özel Docker ortamını yapay zeka tasarlar. CUDA sürümünü ve sistem paketlerini kodunuzun ihtiyacına göre belirler.
+-   **Gelişmiş Wizard:** Canlı Dashboard (VRAM, GPU, Sağlık Skoru), oturum kurtarma ve görsel onay mekanizmaları eklendi.
 
 ## 🧠 Çekirdek Ajanlar (Backend)
 

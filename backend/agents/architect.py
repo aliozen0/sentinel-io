@@ -54,8 +54,29 @@ class Architect:
         "jax": "12.1",
     }
 
+    SYSTEM_PROMPT = """
+    You are a Senior DevOps & MLOps Architect.
+    Plan a production-grade Docker environment for the provided Python AI/ML code.
+    
+    Return ONLY a valid JSON object matching this schema:
+    {
+        "base_image": "docker_image_name",
+        "python_packages": ["pkg1", "pkg2==1.0.0"],
+        "system_packages": ["libgl1", "git"],
+        "setup_commands": ["apt-get update && ...", "pip install ..."],
+        "environment_vars": {"KEY": "VAL"},
+        "estimated_setup_time_min": int,
+        "cuda_version": "12.1"
+    }
+
+    Rules:
+    - Choose the most appropriate base image (e.g. pytorch/pytorch, tensorflow/tensorflow, nvidia/cuda).
+    - Pin versions where possible.
+    - Include all necessary system dependencies for libraries like opencv, audio, etc.
+    """
+
     @staticmethod
-    def plan_environment(
+    async def plan_environment(
         framework: str,
         code: Optional[str] = None,
         requirements_txt: Optional[str] = None,
@@ -63,14 +84,37 @@ class Architect:
     ) -> EnvironmentConfig:
         """
         Creates comprehensive environment config based on analysis.
-        
-        Args:
-            framework: Detected framework (pytorch, tensorflow, jax)
-            code: Source code for import analysis
-            requirements_txt: Optional requirements.txt content
-            vram_gb: Estimated VRAM requirement
+        Tries LLM first, falls back to legacy logic.
         """
         logger.info(f"Planning environment for framework: {framework}")
+        
+        # Try LLM
+        try:
+            try:
+                from backend.ai_client import ask_io_intelligence_async
+            except ImportError:
+                from ai_client import ask_io_intelligence_async
+
+            combined_context = f"FRAMEWORK: {framework}\nVRAM: {vram_gb}GB\n"
+            if requirements_txt:
+                combined_context += f"REQUIREMENTS.TXT:\n{requirements_txt}\n"
+            if code:
+                combined_context += f"CODE CONTEXT:\n{code[:20000]}"
+
+            llm_response = await ask_io_intelligence_async(
+                system_prompt=Architect.SYSTEM_PROMPT,
+                user_prompt=combined_context
+            )
+            
+            import json
+            cleaned = llm_response.strip().replace("```json", "").replace("```", "")
+            data = json.loads(cleaned)
+            return EnvironmentConfig(**data)
+
+        except Exception as e:
+            logger.warning(f"LLM Architect failed: {e}. Using fallback logic.")
+
+        # ================= LEGACY FALLBACK =================
         
         # 1. Determine base image
         image = Architect._select_image(framework, code)
@@ -292,6 +336,6 @@ class Architect:
 
 
 # Backward compatibility wrapper
-def plan_environment(framework: str, requirements_txt: str = None) -> EnvironmentConfig:
+async def plan_environment(framework: str, requirements_txt: str = None) -> EnvironmentConfig:
     """Legacy wrapper for backward compatibility."""
-    return Architect.plan_environment(framework=framework, requirements_txt=requirements_txt)
+    return await Architect.plan_environment(framework=framework, requirements_txt=requirements_txt)

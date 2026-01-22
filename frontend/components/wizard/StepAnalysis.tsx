@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Terminal, Upload, FileCode, Activity, ArrowRight, Brain, Package, Cpu, Clock, CheckCircle2, Info, ChevronDown, ChevronUp, AlertCircle } from "lucide-react"
+import { Search, Terminal, Upload, FileCode, Activity, ArrowRight, Brain, Package, Cpu, Clock, CheckCircle2, Info, ChevronDown, ChevronUp, AlertCircle, Loader2 } from "lucide-react"
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -43,23 +43,26 @@ function PipelineStep({ step, isActive }: { step: any, isActive: boolean }) {
 }
 
 interface StepAnalysisProps {
-    onComplete: (code: string, result: any) => void
+    onComplete: (code: string, result: any, fileInfoData?: any) => void
     initialCode?: string
     initialResult?: any
+    initialFileInfo?: any
 }
 
-export default function StepAnalysis({ onComplete, initialCode = "", initialResult = null }: StepAnalysisProps) {
+export default function StepAnalysis({ onComplete, initialCode = "", initialResult = null, initialFileInfo = null }: StepAnalysisProps) {
     const [code, setCode] = useState(initialCode)
-    const [fileName, setFileName] = useState<string | null>(null)
+    const [fileName, setFileName] = useState<string | null>(initialFileInfo?.filename || null)
+    const [fileInfo, setFileInfo] = useState<any>(initialFileInfo)
     const [budget, setBudget] = useState(10.0)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<any>(initialResult)
     const [isDragging, setIsDragging] = useState(false)
+    const [uploading, setUploading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Expanded sections
     const [showWhatHappens, setShowWhatHappens] = useState(false)
-    const [showFileDetails, setShowFileDetails] = useState(false)
+    const [showFileDetails, setShowFileDetails] = useState(initialFileInfo ? true : false)
     const [showAuditDetails, setShowAuditDetails] = useState(false)
     const [showEnvDetails, setShowEnvDetails] = useState(false)
 
@@ -82,6 +85,19 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
             .catch(err => console.error("Failed to fetch models", err))
     }, [])
 
+    // Initialize stats if fileInfo is present
+    useEffect(() => {
+        if (fileInfo) {
+            setFileName(fileInfo.filename)
+            if (initialCode) {
+                const lines = initialCode.split('\n').length
+                const size = new Blob([initialCode]).size
+                setFileStats({ lines, size, chars: initialCode.length })
+                setShowFileDetails(true)
+            }
+        }
+    }, [])
+
     // Calculate file stats when code changes
     useEffect(() => {
         if (code) {
@@ -89,30 +105,143 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
             const chars = code.length
             const size = new Blob([code]).size
             setFileStats({ lines, size, chars })
-            setShowFileDetails(true)
-        } else {
+        } else if (!fileInfo) {
             setFileStats(null)
         }
-    }, [code])
+    }, [code, fileInfo])
 
-    const handleFileSelect = (file: File) => {
-        if (!file.name.endsWith('.py')) {
-            alert('Please select a Python file (.py)')
-            return
+    // Recovery for lost state
+    useEffect(() => {
+        if (initialCode && initialCode.includes("# Proje Yüklendi") && !initialFileInfo) {
+            setCode("")
+            setFileName(null)
+            // Optional: Notify user toast
         }
-        const reader = new FileReader()
-        reader.onload = (e) => {
-            setCode(e.target?.result as string)
-            setFileName(file.name)
+    }, [])
+
+    const handleFileUpload = async (files: FileList) => {
+        if (!files || files.length === 0) return
+        setUploading(true)
+        setResult(null)
+
+        try {
+            const formData = new FormData()
+            const isProject = files.length > 1 || files[0].name.endsWith('.zip')
+
+            // Upload Logic
+            if (isProject) {
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i])
+                }
+
+                const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload/project`, {
+                    method: 'POST',
+                    body: formData
+                })
+
+                const data = await res.json()
+                if (res.ok) {
+                    const info = {
+                        ...data,
+                        isProject: true,
+                        filename: `${data.file_count} dosya (${files[0].name.endsWith('.zip') ? 'ZIP' : 'Klasör'})`,
+                        local_path: data.project_dir
+                    }
+                    setFileInfo(info)
+                    setFileName(info.filename)
+
+                    // Helper to fetch text from project dir
+                    const fetchProjectFile = async (path: string) => {
+                        try {
+                            const res = await fetch(`${NEXT_PUBLIC_API_URL}/uploads/project_${data.project_id}/${path}`)
+                            if (res.ok) return await res.text()
+                        } catch (e) { console.error(e) }
+                        return null
+                    }
+
+                    try {
+                        let combinedCode = ""
+
+                        // 1. Entry Point
+                        const entryContent = await fetchProjectFile(data.entry_point)
+                        if (entryContent) {
+                            combinedCode += `# === ENTRY POINT: ${data.entry_point} ===\n${entryContent}\n\n`
+                        } else {
+                            combinedCode += `# Hata: Entry point (${data.entry_point}) okunamadı.\n\n`
+                        }
+
+                        // 2. Identify other important files (py, yaml, txt)
+                        const otherFiles = data.files.filter((f: any) =>
+                            f.filename !== data.entry_point &&
+                            (f.filename.endsWith('.py') || f.filename.endsWith('.yaml') || f.filename.endsWith('.yml') || f.filename === 'requirements.txt')
+                        )
+
+                        // 3. Fetch top 5 other files
+                        for (const f of otherFiles.slice(0, 5)) {
+                            const content = await fetchProjectFile(f.filename)
+                            if (content) {
+                                combinedCode += `# === FILE: ${f.filename} ===\n${content}\n\n`
+                            }
+                        }
+
+                        if (otherFiles.length > 5) {
+                            combinedCode += `# ... ve diğer ${otherFiles.length - 5} dosya daha ...`
+                        }
+
+                        setCode(combinedCode)
+
+                    } catch (e) {
+                        console.error("Failed to fetch project files", e)
+                        setCode(`# Hata: Dosyalar okunurken bir sorun oluştu.`)
+                    }
+
+                } else {
+                    alert(`Yükleme hatası: ${data.detail || 'Bilinmeyen hata'}`)
+                }
+
+            } else {
+                // Single File
+                const file = files[0]
+                if (!file.name.endsWith('.py')) {
+                    alert('Lütfen bir Python dosyası veya ZIP projesi seçin.')
+                    setUploading(false)
+                    return
+                }
+
+                // Read locally for immediate feedback
+                const reader = new FileReader()
+                reader.onload = async (e) => {
+                    const content = e.target?.result as string
+                    setCode(content)
+                    setFileName(file.name)
+                }
+                reader.readAsText(file)
+
+                // Also upload to get consistent fileInfo structure
+                formData.append('file', file)
+                const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
+                    method: 'POST',
+                    body: formData
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    setFileInfo(data)
+                }
+            }
+
+        } catch (err: any) {
+            console.error(err)
+            alert(`Yükleme başarısız: ${err.message}`)
+        } finally {
+            setUploading(false)
         }
-        reader.readAsText(file)
     }
 
     const handleDragOver = (e: DragEvent) => { e.preventDefault(); setIsDragging(true) }
     const handleDragLeave = (e: DragEvent) => { e.preventDefault(); setIsDragging(false) }
     const handleDrop = (e: DragEvent) => {
         e.preventDefault(); setIsDragging(false)
-        if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0])
+        if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files)
     }
 
     const handleAnalyze = async () => {
@@ -147,8 +276,8 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                     <div className="flex-1">
                         <h3 className="font-semibold text-blue-200 mb-1">Adım 1: Kod Analizi</h3>
                         <p className="text-sm text-blue-300/90">
-                            Python eğitim kodunuzu yükleyin. Sistem otomatik olarak gereksinimlerinizi analiz edecek,
-                            uygun GPU önerilerini sunacak ve ortam kurulumunu planlayacak.
+                            Python projenizi veya script'inizi yükleyin. Sistem otomatik olarak gereksinimleri analiz edecek.
+                            ZIP veya çoklu dosya yükleyebilirsiniz.
                         </p>
                         <button
                             onClick={() => setShowWhatHappens(!showWhatHappens)}
@@ -177,13 +306,13 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Terminal className="w-4 h-4 text-blue-400" />
                                 Kaynak Kod
-                                {fileName && <span className="ml-auto text-sm font-normal text-zinc-400">{fileName}</span>}
+                                {fileName && <span className="ml-auto text-sm font-normal text-zinc-400 truncate max-w-[200px]">{fileName}</span>}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col space-y-3 min-h-0">
-                            <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])} accept=".py" className="hidden" />
+                            <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleFileUpload(e.target.files)} accept=".py,.zip" multiple className="hidden" />
 
-                            {!code ? (
+                            {!code && !fileInfo ? (
                                 <div
                                     onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
@@ -191,22 +320,46 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                                     onClick={() => fileInputRef.current?.click()}
                                     className={`flex-1 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-700 hover:border-zinc-500 bg-zinc-950'}`}
                                 >
-                                    <Upload className="w-10 h-10 mb-3 text-zinc-500" />
-                                    <p className="text-zinc-400 font-medium">Python Dosyası Sürükleyin</p>
-                                    <p className="text-xs text-zinc-600 mt-1">veya tıklayarak dosya seçin</p>
+                                    {uploading ? (
+                                        <div className="text-center">
+                                            <Loader2 className="w-10 h-10 mb-3 text-blue-500 animate-spin mx-auto" />
+                                            <p className="text-blue-400 font-medium">Yükleniyor...</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Upload className="w-10 h-10 mb-3 text-zinc-500" />
+                                            <p className="text-zinc-400 font-medium">Proje veya Script Sürükleyin</p>
+                                            <p className="text-xs text-zinc-600 mt-1">.py, .zip veya klasör</p>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex-1 flex flex-col gap-2 min-h-0">
                                     {/* File Details Toggle */}
-                                    {fileStats && (
+                                    <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => setShowFileDetails(!showFileDetails)}
-                                            className="flex items-center justify-between p-2 bg-zinc-800/50 rounded text-xs hover:bg-zinc-800 transition"
+                                            className="flex-1 flex items-center justify-between p-2 bg-zinc-800/50 rounded text-xs hover:bg-zinc-800 transition"
                                         >
                                             <span className="text-zinc-400">📄 Dosya Detayları</span>
                                             {showFileDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                         </button>
-                                    )}
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                                setCode("")
+                                                setFileInfo(null)
+                                                setFileName(null)
+                                                setResult(null)
+                                            }}
+                                            title="Dosyayı Temizle"
+                                        >
+                                            <FileCode className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+
                                     {showFileDetails && fileStats && (
                                         <div className="grid grid-cols-3 gap-2 p-2 bg-zinc-900/80 rounded text-xs">
                                             <div className="text-center">
@@ -227,7 +380,7 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                                         className="flex-1 font-mono text-xs bg-zinc-950 border-zinc-800 resize-none min-h-[200px]"
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
-                                        placeholder="# Kodunuzu buraya yapıştırın..."
+                                        placeholder="# Kodunuzu buraya yapıştırın veya dosya yükleyin..."
                                     />
                                 </div>
                             )}
@@ -279,6 +432,38 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                 <div className="flex flex-col gap-4 h-full overflow-y-auto">
                     {loading || result ? (
                         <>
+                            {/* Stats Dashboard */}
+                            {result?.audit && (
+                                <div className="grid grid-cols-5 gap-2 mb-4">
+                                    <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
+                                        <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Framework</div>
+                                        <div className="text-blue-400 font-bold text-sm" title={result.audit.framework}>{result.audit.framework || "Unknown"}</div>
+                                    </div>
+                                    <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
+                                        <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">VRAM</div>
+                                        <div className="text-purple-400 font-bold text-sm">{result.audit.vram_min_gb ? `${result.audit.vram_min_gb} GB` : "N/A"}</div>
+                                    </div>
+                                    <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
+                                        <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">GPU</div>
+                                        <div className="text-emerald-400 font-bold text-xs sm:text-sm">
+                                            {(result.market_recommendations && result.market_recommendations[0]?.gpu_model) || "Flex"}
+                                        </div>
+                                    </div>
+                                    <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
+                                        <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Setup</div>
+                                        <div className="text-yellow-400 font-bold text-sm">{result.environment?.estimated_setup_time_min || 5} min</div>
+                                    </div>
+                                    <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
+                                        <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Health</div>
+                                        <div className={`font-bold text-sm ${(result.audit.health_score || 80) >= 80 ? 'text-emerald-400' :
+                                            (result.audit.health_score || 80) >= 60 ? 'text-yellow-400' : 'text-red-400'
+                                            }`}>
+                                            {result.audit.health_score || 100}/100
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Pipeline */}
                             <Card className="bg-zinc-900/50 border-zinc-800">
                                 <CardHeader className="pb-2">
@@ -391,7 +576,7 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                                         <span className="font-bold text-white">{result.market_recommendations?.length || 0}</span> uygun GPU seçeneği bulundu.
                                     </p>
                                     <Button
-                                        onClick={() => onComplete(code, result)}
+                                        onClick={() => onComplete(code, result, fileInfo)}
                                         className="w-full bg-emerald-600 hover:bg-emerald-500"
                                     >
                                         GPU Önerilerini İncele & Seç

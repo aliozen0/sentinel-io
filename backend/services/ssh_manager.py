@@ -306,6 +306,185 @@ class SSHManager:
             yield f"⚠️ Cleanup warning: {str(e)}"
 
     @staticmethod
+    async def upload_directory(
+        hostname: str,
+        username: str,
+        local_dir: str,
+        remote_dir: str,
+        port: int = 22,
+        auth_type: str = "key",
+        private_key: Optional[str] = None,
+        password: Optional[str] = None,
+        passphrase: Optional[str] = None
+    ) -> AsyncGenerator[str, None]:
+        """Uploads entire directory to remote server via SFTP, maintaining structure."""
+        import os
+        
+        client = SSHManager._create_client()
+        
+        try:
+            yield f"🔌 Connecting to {hostname}:{port}..."
+            
+            if auth_type == "password":
+                client.connect(hostname=hostname, port=port, username=username, 
+                             password=password, timeout=15, banner_timeout=15)
+            else:
+                pkey = SSHManager._parse_private_key(private_key, passphrase)
+                client.connect(hostname=hostname, port=port, username=username, 
+                             pkey=pkey, timeout=15, banner_timeout=15)
+            
+            yield f"✅ Connected as {username}"
+            
+            sftp = client.open_sftp()
+            
+            # Create remote base directory
+            try:
+                sftp.mkdir(remote_dir)
+                yield f"📁 Created remote directory: {remote_dir}"
+            except IOError:
+                yield f"📁 Remote directory exists: {remote_dir}"
+            
+            # Count files first
+            file_count = sum(len(files) for _, _, files in os.walk(local_dir))
+            yield f"📦 Uploading {file_count} files..."
+            
+            uploaded = 0
+            
+            # Walk and upload
+            for root, dirs, files in os.walk(local_dir):
+                rel_root = os.path.relpath(root, local_dir)
+                if rel_root == ".":
+                    remote_root = remote_dir
+                else:
+                    remote_root = f"{remote_dir}/{rel_root}".replace("\\", "/")
+                
+                # Create subdirectories
+                for d in dirs:
+                    remote_subdir = f"{remote_root}/{d}".replace("\\", "/")
+                    try:
+                        sftp.mkdir(remote_subdir)
+                    except IOError:
+                        pass  # Already exists
+                
+                # Upload files
+                for f in files:
+                    local_path = os.path.join(root, f)
+                    remote_path = f"{remote_root}/{f}".replace("\\", "/")
+                    sftp.put(local_path, remote_path)
+                    uploaded += 1
+                    
+                    if uploaded % 5 == 0 or uploaded == file_count:
+                        yield f"📤 Progress: {uploaded}/{file_count} files"
+            
+            sftp.close()
+            yield f"✅ Directory uploaded successfully ({uploaded} files)"
+            
+        except paramiko.AuthenticationException:
+            yield "❌ SFTP Authentication Failed"
+        except paramiko.SSHException as e:
+            yield f"❌ SFTP Error: {str(e)}"
+        except Exception as e:
+            yield f"❌ Upload Error: {str(e)}"
+        finally:
+            client.close()
+
+    @staticmethod
+    async def upload_project_and_execute(
+        hostname: str,
+        username: str,
+        project_dir: str,
+        entry_point: str,
+        port: int = 22,
+        auth_type: str = "key",
+        private_key: Optional[str] = None,
+        password: Optional[str] = None,
+        passphrase: Optional[str] = None,
+        install_requirements: bool = True
+    ) -> AsyncGenerator[str, None]:
+        """
+        Uploads a project directory and executes the entry point script.
+        Optionally installs requirements.txt first.
+        """
+        import os
+        
+        project_name = os.path.basename(project_dir)
+        remote_project_dir = f"/tmp/{project_name}"
+        
+        yield f"🚀 Starting project deployment: {project_name}"
+        yield f"📍 Remote path: {remote_project_dir}"
+        yield "─" * 50
+        
+        # Upload directory
+        async for line in SSHManager.upload_directory(
+            hostname=hostname,
+            username=username,
+            local_dir=project_dir,
+            remote_dir=remote_project_dir,
+            port=port,
+            auth_type=auth_type,
+            private_key=private_key,
+            password=password,
+            passphrase=passphrase
+        ):
+            yield line
+        
+        # Check for requirements.txt and install if present
+        requirements_path = os.path.join(project_dir, "requirements.txt")
+        if install_requirements and os.path.exists(requirements_path):
+            yield "─" * 50
+            yield "📦 Installing requirements.txt..."
+            
+            install_cmd = f"cd {remote_project_dir} && pip install -r requirements.txt --quiet"
+            
+            async for line in SSHManager.execute_command(
+                hostname=hostname,
+                username=username,
+                command=install_cmd,
+                port=port,
+                auth_type=auth_type,
+                private_key=private_key,
+                password=password,
+                passphrase=passphrase
+            ):
+                yield line
+        
+        # Execute entry point
+        yield "─" * 50
+        yield f"▶️ Executing: {entry_point}"
+        
+        run_cmd = f"cd {remote_project_dir} && python3 {entry_point}"
+        
+        async for line in SSHManager.execute_command(
+            hostname=hostname,
+            username=username,
+            command=run_cmd,
+            port=port,
+            auth_type=auth_type,
+            private_key=private_key,
+            password=password,
+            passphrase=passphrase
+        ):
+            yield line
+        
+        # Cleanup
+        yield "─" * 50
+        yield f"🧹 Cleaning up remote project..."
+        try:
+            client = SSHManager._create_client()
+            if auth_type == "password":
+                client.connect(hostname=hostname, port=port, username=username, password=password, timeout=5)
+            else:
+                pkey = SSHManager._parse_private_key(private_key, passphrase)
+                client.connect(hostname=hostname, port=port, username=username, pkey=pkey, timeout=5)
+            stdin, stdout, stderr = client.exec_command(f"rm -rf {remote_project_dir}")
+            stdout.channel.recv_exit_status()
+            client.close()
+            yield f"✅ Project cleanup complete"
+        except Exception as e:
+            yield f"⚠️ Cleanup warning: {str(e)}"
+
+
+    @staticmethod
     def save_key(user_id: str, key_name: str, private_key: str, public_key: str = ""):
         """Persists the SSH key to Supabase."""
         db = get_db()
