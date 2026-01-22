@@ -282,6 +282,63 @@ async def market_status():
     data = Sniper._get_market_data()
     return {"source": "live/cache", "node_count": len(data), "sample": data[:10]}
 
+# --- Terminal WebSocket ---
+from agents.terminal import terminal_manager
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+import json
+
+@app.websocket("/ws/terminal")
+async def terminal_websocket(websocket: WebSocket):
+    await websocket.accept()
+    session_id = id(websocket) 
+    
+    try:
+        # Wait for init message
+        data = await websocket.receive_text()
+        msg = json.loads(data)
+        
+        if msg.get("type") == "connect":
+            config = msg.get("config")
+            try:
+                terminal_manager.create_session(session_id, config)
+                await websocket.send_json({"type": "status", "data": "connected"})
+            except Exception as e:
+                await websocket.send_json({"type": "error", "data": str(e)})
+                return
+        
+        # Main Loop
+        session = terminal_manager.get_session(session_id)
+        if not session:
+            return
+
+        # Background task to read from SSH
+        async def read_ssh():
+            while True:
+                output = session.recv()
+                if output:
+                    await websocket.send_json({"type": "output", "data": output})
+                else:
+                    await asyncio.sleep(0.1)
+
+        reader_task = asyncio.create_task(read_ssh())
+        
+        while True:
+            data = await websocket.receive_text()
+            msg = json.loads(data)
+            
+            if msg.get("type") == "input":
+                session.send(msg.get("data"))
+            elif msg.get("type") == "resize":
+                # Handle resize if needed
+                pass
+
+    except WebSocketDisconnect:
+        terminal_manager.close_session(session_id)
+    except Exception as e:
+        logger.error(f"WS Error: {e}")
+        terminal_manager.close_session(session_id)
+
 @app.post("/v1/deploy/simulate")
 async def deploy_simulate(request: DeploySimulateRequest):
     """
