@@ -64,10 +64,28 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 # 🚀 io-Guard v1.0 API ENDPOINTS (THE NEW CORE)
 # ==========================================
 
+# Available io.net models
+IO_NET_MODELS = [
+    {"id": "deepseek-ai/DeepSeek-V3.2", "name": "DeepSeek V3.2", "type": "chat", "recommended": True},
+    {"id": "deepseek-ai/DeepSeek-R1-0528", "name": "DeepSeek R1 (Reasoning)", "type": "reasoning"},
+    {"id": "meta-llama/Llama-3.3-70B-Instruct", "name": "Llama 3.3 70B", "type": "chat"},
+    {"id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "name": "Llama 4 Maverick", "type": "chat"},
+    {"id": "Qwen/Qwen3-235B-A22B-Thinking-2507", "name": "Qwen3 235B Thinking", "type": "reasoning"},
+    {"id": "Qwen/Qwen2.5-VL-32B-Instruct", "name": "Qwen2.5 VL 32B (Vision)", "type": "vision"},
+    {"id": "moonshotai/Kimi-K2-Thinking", "name": "Kimi K2 Thinking", "type": "reasoning"},
+    {"id": "moonshotai/Kimi-K2-Instruct-0905", "name": "Kimi K2 Instruct", "type": "chat"},
+    {"id": "mistralai/Mistral-Large-Instruct-2411", "name": "Mistral Large", "type": "chat"},
+    {"id": "mistralai/Mistral-Nemo-Instruct-2407", "name": "Mistral Nemo", "type": "chat"},
+    {"id": "mistralai/Devstral-Small-2505", "name": "Devstral Small (Code)", "type": "code"},
+    {"id": "openai/gpt-oss-120b", "name": "GPT OSS 120B", "type": "chat"},
+    {"id": "zai-org/GLM-4.7", "name": "GLM 4.7", "type": "chat"},
+]
+
 # --- Models ---
 class AnalyzeRequest(BaseModel):
     code: str
     budget: float = 10.0
+    model: Optional[str] = None  # Custom model override
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
@@ -75,32 +93,142 @@ class ChatRequest(BaseModel):
 class DeploySimulateRequest(BaseModel):
     job_config: Dict
 
+# --- Model Selection Endpoint ---
+
+@app.get("/v1/models")
+async def get_available_models():
+    """Returns available io.net AI models for analysis."""
+    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
+    return {
+        "default_model": default_model,
+        "models": IO_NET_MODELS
+    }
+
 # --- Endpoints ---
 
 @app.post("/v1/analyze")
 async def analyze_code(request: AnalyzeRequest):
     """
     [v1.0] Analyzes code and recommends GPU nodes.
+    Uses: Auditor (LLM) → Architect (Environment) → Sniper (Market)
+    Returns pipeline trace for transparency.
     """
-    logger.info("Received analysis request (v1.0)")
+    import time
+    import os
     
-    # 1. Audit Code
-    audit_report = await Auditor.analyze_code(request.code)
+    # Get model - use request model or fall back to env default
+    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
+    model_name = request.model if request.model else default_model
+    api_base = os.getenv("IO_BASE_URL", "api.intelligence.io.solutions")
     
-    # 2. Architect Environment
-    env_config = Architect.plan_environment(audit_report.framework)
+    pipeline_trace = []
     
-    # 3. Find Nodes (Sniper)
+    # === STEP 1: Auditor (LLM Analysis) ===
+    step1_start = time.time()
+    pipeline_trace.append({
+        "step": 1,
+        "agent": "Auditor",
+        "status": "running",
+        "action": "Sending code to LLM for analysis...",
+        "details": {
+            "model": model_name,
+            "api": api_base.replace("https://", "").replace("/api/v1/", ""),
+            "code_length": len(request.code)
+        }
+    })
+    
+    audit_report = await Auditor.analyze_code(request.code, model=model_name)
+    step1_time = round(time.time() - step1_start, 2)
+    
+    pipeline_trace[0]["status"] = "completed"
+    pipeline_trace[0]["duration_sec"] = step1_time
+    pipeline_trace[0]["result"] = {
+        "framework": audit_report.framework,
+        "vram": f"{audit_report.vram_min_gb} GB",
+        "health_score": audit_report.health_score,
+        "issues_found": len(audit_report.critical_issues)
+    }
+    
+    # === STEP 2: Architect (Environment Planning) ===
+    step2_start = time.time()
+    pipeline_trace.append({
+        "step": 2,
+        "agent": "Architect",
+        "status": "running",
+        "action": "Analyzing imports and planning environment...",
+        "details": {
+            "framework": audit_report.framework,
+            "vram_required": audit_report.vram_min_gb
+        }
+    })
+    
+    env_config = Architect.plan_environment(
+        framework=audit_report.framework,
+        code=request.code,
+        vram_gb=audit_report.vram_min_gb
+    )
+    step2_time = round(time.time() - step2_start, 2)
+    
+    pipeline_trace[1]["status"] = "completed"
+    pipeline_trace[1]["duration_sec"] = step2_time
+    pipeline_trace[1]["result"] = {
+        "base_image": env_config.base_image,
+        "packages_detected": len(env_config.python_packages),
+        "cuda_version": env_config.cuda_version
+    }
+    
+    # === STEP 3: Sniper (Market Analysis) ===
+    step3_start = time.time()
+    gpu_model = "RTX 4090" if audit_report.vram_min_gb > 20 else "RTX 3090"
+    
+    pipeline_trace.append({
+        "step": 3,
+        "agent": "Sniper",
+        "status": "running",
+        "action": "Fetching live GPU prices from io.net...",
+        "details": {
+            "api": "api.io.solutions/v1/io-explorer/network/market-snapshot",
+            "target_gpu": gpu_model,
+            "budget": f"${request.budget}/hr"
+        }
+    })
+    
     best_nodes = await Sniper.get_best_nodes(
         budget_hourly=request.budget, 
-        gpu_model="RTX 4090" if audit_report.vram_min_gb > 20 else "RTX 3090"
+        gpu_model=gpu_model
     )
+    step3_time = round(time.time() - step3_start, 2)
     
-    return {
+    pipeline_trace[2]["status"] = "completed"
+    pipeline_trace[2]["duration_sec"] = step3_time
+    pipeline_trace[2]["result"] = {
+        "nodes_found": len(best_nodes),
+        "best_price": f"${best_nodes[0].price_hourly}/hr" if best_nodes else "N/A"
+    }
+    
+    total_time = round(step1_time + step2_time + step3_time, 2)
+    
+    analysis_result = {
         "audit": audit_report.dict(),
         "environment": env_config.dict(),
-        "market_recommendations": [node.dict() for node in best_nodes]
+        "market_recommendations": [node.dict() for node in best_nodes],
+        "summary": {
+            "framework": audit_report.framework,
+            "vram_required": f"{audit_report.vram_min_gb} GB",
+            "recommended_gpu": gpu_model,
+            "estimated_setup": f"{env_config.estimated_setup_time_min} min",
+            "health_score": audit_report.health_score
+        },
+        "pipeline_trace": {
+            "total_duration_sec": total_time,
+            "steps": pipeline_trace
+        }
     }
+    
+    # Store in state for Chat Agent context
+    state.last_analysis = analysis_result
+    
+    return analysis_result
 
 # ...
 try:
@@ -113,56 +241,38 @@ except ImportError:
 @app.post("/v1/chat")
 async def chat_agent(request: ChatRequest):
     """
-    [v1.0] General Purpose AI Chatbot.
-    Supports technical queries + general conversation.
+    [v1.0] Project-Aware AI Chatbot.
+    Uses ChatAgent to provide context-aware responses (Analysis, Deployment, etc.)
     """
+    from agents.chat import ChatAgent
+    
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided")
-    
-    last_msg = request.messages[-1]
-    user_content = last_msg['content']
     
     # 1. Persist User Message (Real DB)
     supabase = get_db()
     if supabase:
         try:
-            supabase.table("chat_messages").insert({
+             supabase.table("io_chat_history").insert({
                 "role": "user",
-                "content": user_content,
-                # "user_id": ... (Add auth context later)
+                "content": request.messages[-1]["content"]
             }).execute()
-        except Exception as e:
-            logger.error(f"DB Error (User): {e}")
+        except: pass
 
-    logger.info(f"Chat User: {user_content}")
+    # 2. Get Response from ChatAgent (Context Aware)
+    # We can pass model preference if needed, for now use default
+    response_content = await ChatAgent.chat(request.messages)
     
-    # 2. Updated System Prompt for General + Tech capabilities
-    system_prompt = (
-        "You are io-Guard, an intelligent AI Assistant. "
-        "Your primary expertise is Distributed Training and GPU Orchestration, "
-        "but you are also a friendly, general-purpose chatbot. "
-        "You can answer general questions, help with coding, or just chat casually. "
-        "Be concise, professional, yet warm."
-    )
-    
-    response = await ask_io_intelligence_async(
-        system_prompt=system_prompt,
-        user_prompt=user_content
-    )
-    
-    # 3. Persist AI Response (Real DB)
+    # 3. Persist AI Response
     if supabase:
         try:
-            supabase.table("chat_messages").insert({
+             supabase.table("io_chat_history").insert({
                 "role": "assistant",
-                "content": response
+                "content": response_content
             }).execute()
-        except Exception as e:
-            logger.error(f"DB Error (AI): {e}")
+        except: pass
 
-    logger.info(f"Chat AI: {response}")
-    
-    return {"role": "assistant", "content": response}
+    return {"role": "assistant", "content": response_content}
 
 @app.get("/v1/market/status")
 async def market_status():

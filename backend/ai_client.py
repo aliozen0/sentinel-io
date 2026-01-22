@@ -15,7 +15,7 @@ client = OpenAI(
 
 import asyncio
 
-def ask_io_intelligence(system_prompt: str, user_prompt: str):
+def ask_io_intelligence(system_prompt: str, user_prompt: str, model: str = None):
     """
     Sends a request to the io.net Intelligence API (Sync Wrapper).
     Warning: This blocks! Prefer strict usage in async wrappers or threads.
@@ -24,8 +24,11 @@ def ask_io_intelligence(system_prompt: str, user_prompt: str):
          return "Error: IO_API_KEY is not set or is invalid in .env"
 
     try:
+        # Use provided model or fallback to env var
+        target_model = model if model else MODEL_NAME
+        
         response = client.chat.completions.create(
-            model=MODEL_NAME,
+            model=target_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -53,8 +56,8 @@ def ask_io_intelligence(system_prompt: str, user_prompt: str):
     except Exception as e:
         return f"AI Error: {str(e)}"
 
-async def ask_io_intelligence_async(system_prompt: str, user_prompt: str):
+async def ask_io_intelligence_async(system_prompt: str, user_prompt: str, model: str = None):
     """
     Async wrapper to prevent blocking the FastAPI Event Loop.
     """
-    return await asyncio.to_thread(ask_io_intelligence, system_prompt, user_prompt)
+    return await asyncio.to_thread(ask_io_intelligence, system_prompt, user_prompt, model)

@@ -22,6 +22,26 @@ export default function DeployPage() {
     const [loadingDemo, setLoadingDemo] = useState(false)
     const logEndRef = useRef<HTMLDivElement>(null)
 
+    // Planned deployment state
+    const [plannedConfig, setPlannedConfig] = useState<any>(null)
+
+    // Check for Analyze params on mount
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const gpu = params.get("gpu")
+
+        if (gpu) {
+            setPlannedConfig({
+                gpu: gpu,
+                price: params.get("price"),
+                image: params.get("image"),
+                setup: params.get("setup")
+            })
+            // Auto open SSH modal to encourage connection
+            setShowSshModal(true)
+        }
+    }, [])
+
     // File upload state
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [uploadedFile, setUploadedFile] = useState<any>(null)
@@ -226,6 +246,30 @@ export default function DeployPage() {
                     </div>
                 )}
             </div>
+
+            {plannedConfig && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-blue-500/20 p-2 rounded-full">
+                            <Rocket className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-blue-200">Deployment Configured from Analysis</h3>
+                            <p className="text-sm text-blue-300">
+                                Target: <span className="font-bold text-white">{plannedConfig.gpu}</span> (${plannedConfig.price}/hr) •
+                                Environment: <span className="font-mono text-xs bg-blue-500/20 px-1 py-0.5 rounded ml-1">{plannedConfig.image}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setShowSshModal(true)}
+                    >
+                        Configure Connection
+                    </Button>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
                 {/* Config Panel */}

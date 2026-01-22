@@ -40,17 +40,18 @@ class Auditor:
     """
 
     @staticmethod
-    async def analyze_code(code: str) -> AuditReport:
+    async def analyze_code(code: str, model: str = None) -> AuditReport:
         """
         Main entry point for code analysis.
         Tries LLM first, falls back to AST if LLM fails.
         """
         try:
-            # 1. Try LLM
-            logger.info("Sending code to LLM for audit...")
+            # 1. Try LLM with specified model
+            logger.info(f"Sending code to LLM ({model or 'default'}) for audit...")
             llm_response = await ask_io_intelligence_async(
                 system_prompt=Auditor.SYSTEM_PROMPT,
-                user_prompt=f"CODE:\n{code[:8000]}" # Truncate if too long
+                user_prompt=f"CODE:\n{code[:8000]}",  # Truncate if too long
+                model=model
             )
             
             # 2. Parse JSON

@@ -58,29 +58,38 @@ class Sniper:
                 
                 safe_price = max(price, 0.01)
                 
-                # --- NEW SCORING ALGORITHM ---
-                # 1. Price Score (Lower is better) - Weight: 50%
+                # --- SMART SNIPER v2 SCORING ALGORITHM ---
+                
+                # 1. Price Score (Lower is better) - Weight: 40%
                 score_price = (1 / safe_price)
                 
-                # 2. Availability Score (Ratio of idle nodes) - Weight: 30%
-                # If there are many idle nodes, it's easier to get one.
-                availability_ratio = (idle / max(total, 1))
-                score_availability = availability_ratio * 10
+                # 2. Reliability Score (High uptime critical) - Weight: 30%
+                # Normalize 0-100 to 0-1
+                reliability = float(c.get('reliability', 95))
+                score_reliability = (reliability / 100.0) * 2  # Boost factor
                 
-                # 3. Trust Score (Logarithmic popularity) - Weight: 20%
-                # More hired = more trusted platform/hardware
+                # 3. Availability/Speed Score - Weight: 20%
+                speed = float(c.get('speed', 80))
+                availability_ratio = (idle / max(total, 1))
+                score_performance = (availability_ratio + (speed / 100.0)) / 2
+                
+                # 4. Trust Score (Logarithmic popularity) - Weight: 10%
                 import math
                 score_trust = math.log10(max(hired, 1)) 
                 
                 # Final Weighted Score
-                final_score = (score_price * 0.5) + (score_availability * 0.3) + (score_trust * 0.2)
+                # Price(40%) + Reliability(30%) + Performance(20%) + Trust(10%)
+                final_score = (score_price * 0.4) + \
+                              (score_reliability * 0.3 * 10) + \
+                              (score_performance * 0.2 * 10) + \
+                              (score_trust * 0.1)
                 
                 node_obj = GPUNode(
                     id=c['id'],
                     gpu_model=c['gpu_model'],
                     price_hourly=price,
-                    reliability=c.get('reliability', 95),
-                    speed_score=c.get('speed', 80),
+                    reliability=reliability,
+                    speed_score=speed,
                     total_nodes=total,
                     idle_nodes=idle,
                     hired_nodes=hired,

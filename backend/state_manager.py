@@ -14,6 +14,9 @@ class StateManager:
             "rewards": 0.0,
             "history": [] # {"reason": "...", "amount": -10.0, "ts": ...}
         }
+        
+        # Session Context for Chat
+        self.last_analysis = {} # Stores the result of last Auditor/Sniper run
     
     def update_worker_status(self, worker_id: str, data: dict):
         self.workers[worker_id] = {
