@@ -123,7 +123,84 @@ curl http://localhost:8000/v1/connections/demo/key
 
 ---
 
-## 📂 Proje Yapısı
+## � Live Deployment: Dosya Yükleme ve Uzaktan Çalıştırma
+
+io-Guard, Python scriptlerinizi uzaktaki GPU sunucusuna yükleyip **gerçek zamanlı** çalıştırmanızı sağlar.
+
+### Nasıl Çalışır?
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Frontend   │────▶│   Backend   │────▶│  GPU Node   │
+│  (Browser)  │     │  (FastAPI)  │     │   (SSH)     │
+└─────────────┘     └─────────────┘     └─────────────┘
+     │                    │                    │
+     │ 1. Dosya Seç       │                    │
+     │ 2. Upload          │                    │
+     │──────────────────▶ │ 3. SFTP Transfer   │
+     │                    │──────────────────▶ │
+     │                    │ 4. python3 script  │
+     │                    │──────────────────▶ │
+     │ 5. Canlı Loglar    │ ◀────────────────  │
+     │ ◀───WebSocket───── │                    │
+     └────────────────────┴────────────────────┘
+```
+
+### Adım Adım Kullanım
+
+1. **Deploy Sayfasını Açın:** [http://localhost:3000/deploy](http://localhost:3000/deploy)
+
+2. **Sunucuya Bağlanın:**
+   - 🎮 **Demo için:** "Get Demo Server Credentials" → "Fill Connection Form" → "Test Connection" → "Save"
+   - 🔑 **Gerçek sunucu için:** "Add Remote Server" → SSH bilgilerinizi girin
+
+3. **Script Yükleyin:**
+   - Python dosyanızı seçin (.py)
+   - "Upload" butonuna tıklayın
+
+4. **Çalıştırın:**
+   - "Execute on Server" butonuna tıklayın
+   - Terminal'de **canlı** output izleyin!
+
+### Örnek Çıktı
+
+```
+🚀 STARTING REMOTE EXECUTION
+══════════════════════════════════════════════════
+📋 Job ID: exec_a12ca913
+📁 Preparing to upload: gpu_test.py
+✅ File uploaded successfully (1178 bytes)
+📍 Remote path: /tmp/gpu_test.py
+🔌 Connecting to mock-gpu-node:22...
+✅ Connected as root
+🚀 Executing: python3 /tmp/gpu_test.py
+──────────────────────────────────────────────────
+[TEST] Starting GPU Burn Test...
+[TEST] Epoch 1/5: Loss=1.29 | Accuracy=21.3%
+[TEST] Epoch 2/5: Loss=0.80 | Accuracy=41.3%
+[TEST] Epoch 5/5: Loss=0.32 | Accuracy=98.1%
+[TEST] ✅ Job Completed Successfully.
+──────────────────────────────────────────────────
+✅ Command completed successfully (exit code: 0)
+🧹 Cleaning up remote file...
+✅ Cleanup complete
+══════════════════════════════════════════════════
+```
+
+### Gerçek Sunucuya Bağlanma
+
+Demo'daki akış, gerçek bir io.net GPU node'una veya herhangi bir SSH erişimli sunucuya **aynı şekilde** çalışır:
+
+| Özellik | Demo (Mock) | Gerçek Sunucu |
+|---------|-------------|---------------|
+| SSH Bağlantısı | ✅ | ✅ |
+| SFTP Dosya Transferi | ✅ | ✅ |
+| Uzaktan Kod Çalıştırma | ✅ | ✅ |
+| Canlı Log Streaming | ✅ | ✅ |
+
+---
+
+## �📂 Proje Yapısı
 
 ```
 io-guard/
