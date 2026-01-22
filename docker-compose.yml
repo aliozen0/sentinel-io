@@ -6,11 +6,16 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - DOCKER_ENV=true
     networks:
       - io_guard_net
     volumes:
       - ./backend:/app
       - ./tests:/app/tests
+      - demo_keys:/app/keys
+    depends_on:
+      - mock-gpu-node
 
   frontend:
     build: ./frontend
@@ -24,6 +29,20 @@ services:
     networks:
       - io_guard_net
 
+  mock-gpu-node:
+    build: ./mock_gpu
+    container_name: mock_gpu_node
+    hostname: mock-gpu-node
+    networks:
+      - io_guard_net
+    volumes:
+      - demo_keys:/keys
+    expose:
+      - "22"
+
 networks:
   io_guard_net:
     driver: bridge
+
+volumes:
+  demo_keys:

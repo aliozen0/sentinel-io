@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import re
 from datetime import datetime
@@ -9,6 +11,8 @@ import hashlib
 import os
 import logging
 import asyncio
+import uuid
+
 
 # --- io-Guard v1.0 Core Imports ---
 try:
@@ -48,6 +52,13 @@ app.add_middleware(
 
 # Register Demo Routes
 app.include_router(demo.router, prefix="/v1/connections", tags=["Demo"])
+
+# Ensure uploads directory exists
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# Mount static files for serving uploads
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # ==========================================
 # 🚀 io-Guard v1.0 API ENDPOINTS (THE NEW CORE)
@@ -203,6 +214,160 @@ async def test_ssh_connection(request: SSHConnectionRequest):
     except Exception as e:
         logger.error(f"SSH Test Error: {e}")
         return {"success": False, "message": f"Server Error: {str(e)}"}
+
+
+# --- File Upload ---
+
+@app.post("/v1/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    [v1.0] Uploads a Python script for remote execution.
+    Only accepts .py files for security.
+    """
+    # Security: Only allow Python files
+    if not file.filename.endswith('.py'):
+        raise HTTPException(status_code=400, detail="Only Python (.py) files are allowed")
+    
+    # Generate unique filename
+    file_id = str(uuid.uuid4())[:8]
+    safe_filename = f"{file_id}_{file.filename.replace(' ', '_')}"
+    file_path = os.path.join(UPLOADS_DIR, safe_filename)
+    
+    try:
+        # Save file
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        
+        # Generate URL
+        # Note: In Docker, external access is via localhost:8000
+        file_url = f"http://localhost:8000/uploads/{safe_filename}"
+        
+        logger.info(f"File uploaded: {safe_filename} ({len(contents)} bytes)")
+        
+        return {
+            "success": True,
+            "filename": safe_filename,
+            "original_name": file.filename,
+            "size": len(contents),
+            "url": file_url,
+            "local_path": file_path
+        }
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@app.get("/v1/uploads")
+async def list_uploads():
+    """
+    [v1.0] Lists all uploaded files.
+    """
+    try:
+        files = []
+        for filename in os.listdir(UPLOADS_DIR):
+            if filename.endswith('.py'):
+                filepath = os.path.join(UPLOADS_DIR, filename)
+                files.append({
+                    "filename": filename,
+                    "size": os.path.getsize(filepath),
+                    "url": f"http://localhost:8000/uploads/{filename}"
+                })
+        return {"files": files}
+    except Exception as e:
+        return {"files": [], "error": str(e)}
+
+
+# --- Remote Execution ---
+
+class ExecuteRequest(BaseModel):
+    hostname: str
+    username: str
+    private_key: str
+    port: int = 22
+    script_path: str  # Local path to the uploaded script
+
+
+@app.post("/v1/deploy/execute")
+async def deploy_execute(request: ExecuteRequest):
+    """
+    [v1.0] Uploads script to remote server and executes it.
+    Returns job_id for WebSocket log streaming.
+    """
+    # Verify file exists
+    if not os.path.exists(request.script_path):
+        raise HTTPException(status_code=404, detail="Script file not found")
+    
+    # Generate job ID
+    job_id = f"exec_{str(uuid.uuid4())[:8]}"
+    
+    # Store job config for WebSocket retrieval
+    # Using a simple in-memory store (could be Redis in production)
+    if not hasattr(app, 'job_configs'):
+        app.job_configs = {}
+    
+    app.job_configs[job_id] = {
+        "hostname": request.hostname,
+        "username": request.username,
+        "private_key": request.private_key,
+        "port": request.port,
+        "script_path": request.script_path,
+        "status": "pending"
+    }
+    
+    logger.info(f"Execution job created: {job_id}")
+    
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "message": "Connect to WebSocket /ws/execute/{job_id} for logs"
+    }
+
+
+@app.websocket("/ws/execute/{job_id}")
+async def websocket_execute(websocket: WebSocket, job_id: str):
+    """
+    [v1.0] Real-time execution logs via WebSocket.
+    Uploads file to remote server and executes it.
+    """
+    await websocket.accept()
+    
+    try:
+        # Get job config
+        if not hasattr(app, 'job_configs') or job_id not in app.job_configs:
+            await websocket.send_text("❌ Job not found")
+            await websocket.close()
+            return
+        
+        config = app.job_configs[job_id]
+        config["status"] = "running"
+        
+        await websocket.send_text(f"🚀 Starting job: {job_id}")
+        
+        # Import SSHManager
+        from services.ssh_manager import SSHManager
+        
+        # Stream execution logs
+        async for line in SSHManager.upload_and_execute(
+            hostname=config["hostname"],
+            username=config["username"],
+            private_key_str=config["private_key"],
+            local_path=config["script_path"],
+            port=config["port"]
+        ):
+            await websocket.send_text(line)
+        
+        config["status"] = "completed"
+        await websocket.send_text(f"✅ Job {job_id} completed")
+        
+    except Exception as e:
+        logger.error(f"Execution error: {e}")
+        await websocket.send_text(f"❌ Error: {str(e)}")
+    finally:
+        try:
+            await websocket.close()
+        except:
+            pass
 
 @app.websocket("/ws/logs/{job_id}")
 async def websocket_logs(websocket: WebSocket, job_id: str):
