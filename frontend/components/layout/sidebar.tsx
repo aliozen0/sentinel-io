@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Code2, MessageSquare, Rocket, Settings, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Code2, MessageSquare, Rocket, Settings, ShieldCheck, Workflow } from "lucide-react"
 
 const routes = [
     {
@@ -11,6 +11,12 @@ const routes = [
         icon: LayoutDashboard,
         href: "/",
         color: "text-sky-500",
+    },
+    {
+        label: "Deployment Wizard",
+        icon: Workflow,
+        href: "/wizard",
+        color: "text-emerald-500",
     },
     {
         label: "Analyze Code",
