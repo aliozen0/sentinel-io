@@ -152,16 +152,28 @@ export default function DeployPage() {
         setLogs(prev => [...prev, "", "═".repeat(50), "🚀 STARTING REMOTE EXECUTION", "═".repeat(50)])
 
         try {
+            const body: any = {
+                hostname: sshConfig.hostname,
+                username: sshConfig.username,
+                port: sshConfig.port || 22,
+                auth_type: sshConfig.authType || "key",
+                script_path: uploadedFile.local_path
+            };
+
+            // Add auth credentials based on type
+            if (sshConfig.authType === "password") {
+                body.password = sshConfig.password;
+            } else {
+                body.private_key = sshConfig.privateKey;
+                if (sshConfig.passphrase) {
+                    body.passphrase = sshConfig.passphrase;
+                }
+            }
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/deploy/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    hostname: sshConfig.hostname,
-                    username: sshConfig.username,
-                    private_key: sshConfig.privateKey,
-                    port: sshConfig.port || 22,
-                    script_path: uploadedFile.local_path
-                })
+                body: JSON.stringify(body)
             })
 
             if (res.ok) {
@@ -376,11 +388,11 @@ export default function DeployPage() {
                             <div className="space-y-0.5">
                                 {logs.map((line, i) => (
                                     <div key={i} className={`whitespace-pre-wrap break-all leading-relaxed ${line.startsWith('❌') ? 'text-red-400' :
-                                            line.startsWith('✅') ? 'text-emerald-400' :
-                                                line.startsWith('⚠️') || line.startsWith('💡') ? 'text-yellow-400' :
-                                                    line.startsWith('🚀') || line.startsWith('═') || line.startsWith('📌') ? 'text-blue-400 font-bold' :
-                                                        line.startsWith('📋') || line.startsWith('📁') || line.startsWith('📍') || line.startsWith('🔄') ? 'text-cyan-400' :
-                                                            line.startsWith('   ') ? 'text-zinc-400 pl-2' : 'text-zinc-300'
+                                        line.startsWith('✅') ? 'text-emerald-400' :
+                                            line.startsWith('⚠️') || line.startsWith('💡') ? 'text-yellow-400' :
+                                                line.startsWith('🚀') || line.startsWith('═') || line.startsWith('📌') ? 'text-blue-400 font-bold' :
+                                                    line.startsWith('📋') || line.startsWith('📁') || line.startsWith('📍') || line.startsWith('🔄') ? 'text-cyan-400' :
+                                                        line.startsWith('   ') ? 'text-zinc-400 pl-2' : 'text-zinc-300'
                                         }`}>{line}</div>
                                 ))}
                                 <div ref={logEndRef} />

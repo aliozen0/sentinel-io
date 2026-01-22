@@ -121,6 +121,21 @@ curl http://localhost:8000/v1/connections/demo/key
 - ✅ **Tam Entegrasyon:** Live deployment ile aynı workflow
 - ✅ **Sıfır Konfigürasyon:** Docker Compose ile otomatik başlar
 
+### 🔐 Desteklenen SSH Bağlantı Yöntemleri
+
+io-Guard, yaygın kullanılan tüm SSH kimlik doğrulama yöntemlerini destekler:
+
+| Yöntem | Açıklama | Kullanım |
+|--------|----------|----------|
+| 🔑 **SSH Private Key** | RSA, Ed25519, ECDSA, DSA formatları | Standart key-based authentication |
+| 🔐 **Password** | Parola ile giriş | Key kullanmayan sunucular için |
+| 🔒 **Passphrase-protected Key** | Şifreli private key | Ekstra güvenlik katmanı |
+
+**Bağlantı formunda:**
+1. "SSH Key" veya "Password" seçin
+2. Key kullanıyorsanız ve şifreliyse, "Passphrase" alanını doldurun
+3. "Test Connection" ile doğrulayın
+
 ---
 
 ## � Live Deployment: Dosya Yükleme ve Uzaktan Çalıştırma

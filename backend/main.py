@@ -191,22 +191,28 @@ async def deploy_live(payload: dict):
 class SSHConnectionRequest(BaseModel):
     hostname: str
     username: str
-    private_key: str
     port: int = 22
+    auth_type: str = "key"  # "key" or "password"
+    private_key: Optional[str] = None
+    password: Optional[str] = None
+    passphrase: Optional[str] = None  # For encrypted keys
 
 @app.post("/v1/connection/test")
 async def test_ssh_connection(request: SSHConnectionRequest):
     """
     [v1.0] Tests SSH connection to a remote node.
+    Supports: Private Key, Password, and Passphrase-protected keys.
     """
     try:
-        # Import internally to avoid top-level crash if paramiko missing
         from services.ssh_manager import SSHManager
         success, message = await SSHManager.test_connection(
-            request.hostname, 
-            request.username, 
-            request.private_key, 
-            request.port
+            hostname=request.hostname, 
+            username=request.username, 
+            port=request.port,
+            auth_type=request.auth_type,
+            private_key=request.private_key,
+            password=request.password,
+            passphrase=request.passphrase
         )
         return {"success": success, "message": message}
     except ImportError:
@@ -283,8 +289,11 @@ async def list_uploads():
 class ExecuteRequest(BaseModel):
     hostname: str
     username: str
-    private_key: str
     port: int = 22
+    auth_type: str = "key"  # "key" or "password"
+    private_key: Optional[str] = None
+    password: Optional[str] = None
+    passphrase: Optional[str] = None
     script_path: str  # Local path to the uploaded script
 
 
@@ -292,25 +301,24 @@ class ExecuteRequest(BaseModel):
 async def deploy_execute(request: ExecuteRequest):
     """
     [v1.0] Uploads script to remote server and executes it.
-    Returns job_id for WebSocket log streaming.
+    Supports: Private Key, Password, and Passphrase-protected keys.
     """
-    # Verify file exists
     if not os.path.exists(request.script_path):
         raise HTTPException(status_code=404, detail="Script file not found")
     
-    # Generate job ID
     job_id = f"exec_{str(uuid.uuid4())[:8]}"
     
-    # Store job config for WebSocket retrieval
-    # Using a simple in-memory store (could be Redis in production)
     if not hasattr(app, 'job_configs'):
         app.job_configs = {}
     
     app.job_configs[job_id] = {
         "hostname": request.hostname,
         "username": request.username,
-        "private_key": request.private_key,
         "port": request.port,
+        "auth_type": request.auth_type,
+        "private_key": request.private_key,
+        "password": request.password,
+        "passphrase": request.passphrase,
         "script_path": request.script_path,
         "status": "pending"
     }
@@ -333,7 +341,6 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
     await websocket.accept()
     
     try:
-        # Get job config
         if not hasattr(app, 'job_configs') or job_id not in app.job_configs:
             await websocket.send_text("❌ Job not found")
             await websocket.close()
@@ -344,16 +351,17 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
         
         await websocket.send_text(f"🚀 Starting job: {job_id}")
         
-        # Import SSHManager
         from services.ssh_manager import SSHManager
         
-        # Stream execution logs
         async for line in SSHManager.upload_and_execute(
             hostname=config["hostname"],
             username=config["username"],
-            private_key_str=config["private_key"],
             local_path=config["script_path"],
-            port=config["port"]
+            port=config["port"],
+            auth_type=config["auth_type"],
+            private_key=config.get("private_key"),
+            password=config.get("password"),
+            passphrase=config.get("passphrase")
         ):
             await websocket.send_text(line)
         
