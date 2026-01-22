@@ -62,11 +62,15 @@ export default function StepDeployment({
     const fetchDemoCredentials = async () => {
         setLoadingDemo(true)
         try {
-            const demoRes = await fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo`)
-            if (!demoRes.ok) throw new Error("Demo unavailable")
+            const token = localStorage.getItem("token")
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
+            const demoRes = await fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo`, { headers })
+            if (!demoRes.ok) throw new Error("Demo unavailable or Unauthorized")
             const demoData = await demoRes.json()
 
-            const keyRes = await fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo/key`)
+            const keyRes = await fetch(`${NEXT_PUBLIC_API_URL}/v1/connections/demo/key`, { headers })
             const keyData = await keyRes.json()
 
             const config = {
@@ -283,6 +287,11 @@ export default function StepDeployment({
                                             try {
                                                 const formData = new FormData()
 
+                                                // Headers with Auth
+                                                const token = localStorage.getItem("token")
+                                                const headers: any = {}
+                                                if (token) headers["Authorization"] = `Bearer ${token}`
+
                                                 // Use project endpoint for multiple files or ZIP
                                                 if (files.length > 1 || files[0].name.endsWith('.zip')) {
                                                     for (let i = 0; i < files.length; i++) {
@@ -291,6 +300,7 @@ export default function StepDeployment({
                                                     console.log('Uploading to /v1/upload/project:', files.length, 'files')
                                                     const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload/project`, {
                                                         method: 'POST',
+                                                        headers: headers,
                                                         body: formData
                                                     })
                                                     const data = await res.json()
@@ -312,6 +322,7 @@ export default function StepDeployment({
                                                     console.log('Uploading single file:', files[0].name)
                                                     const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
                                                         method: 'POST',
+                                                        headers: headers,
                                                         body: formData
                                                     })
                                                     const data = await res.json()

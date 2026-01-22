@@ -11,6 +11,10 @@ import logging
 import asyncio
 import uuid
 
+from auth import get_current_user, create_local_token
+from db.client import get_db
+from fastapi import Depends, Security
+
 
 # --- io-Guard v1.0 Core Imports ---
 try:
@@ -91,7 +95,24 @@ class ChatRequest(BaseModel):
 class DeploySimulateRequest(BaseModel):
     job_config: Dict
 
+
+
+# --- System & Auth Endpoints ---
+
+@app.get("/v1/system/status")
+async def system_status():
+    """Returns the current operating mode (CLOUD vs LOCAL)."""
+    db = get_db()
+    return {"mode": db.mode}
+
+# Include Auth Router
+from routes import auth_routes as auth_router
+app.include_router(auth_router.router, prefix="/v1/auth", tags=["Auth"])
+
 # --- Model Selection Endpoint ---
+
+# --- Model Selection Endpoint ---
+
 
 @app.get("/v1/models")
 async def get_available_models():
@@ -105,11 +126,10 @@ async def get_available_models():
 # --- Endpoints ---
 
 @app.post("/v1/analyze")
-async def analyze_code(request: AnalyzeRequest):
+async def analyze_code(request: AnalyzeRequest, current_user: dict = Depends(get_current_user)):
     """
     [v1.0] Analyzes code and recommends GPU nodes.
-    Uses: Auditor (LLM) → Architect (Environment) → Sniper (Market)
-    Returns pipeline trace for transparency.
+    Protected by Hybrid Auth.
     """
     import time
     import os
@@ -147,6 +167,12 @@ async def analyze_code(request: AnalyzeRequest):
         "issues_found": len(audit_report.critical_issues)
     }
     
+    
+    # Check Credits
+    user_credits = float(current_user.get("credits", 0.0))
+    if user_credits < 1.0: # Minimum 1 credit to analyze
+        raise HTTPException(status_code=402, detail="Insufficient credits. Please top up.")
+
     # === STEP 2: Architect (Environment Planning) ===
     step2_start = time.time()
     pipeline_trace.append({
@@ -237,7 +263,7 @@ except ImportError:
 # ... (inside chat_agent)
 
 @app.post("/v1/chat")
-async def chat_agent(request: ChatRequest):
+async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
     [v1.0] Project-Aware AI Chatbot.
     Uses ChatAgent to provide context-aware responses (Analysis, Deployment, etc.)
@@ -616,7 +642,7 @@ class ExecuteRequest(BaseModel):
 
 
 @app.post("/v1/deploy/execute")
-async def deploy_execute(request: ExecuteRequest):
+async def deploy_execute(request: ExecuteRequest, current_user: dict = Depends(get_current_user)):
     """
     [v1.0] Uploads script to remote server and executes it.
     Supports: Private Key, Password, and Passphrase-protected keys.
@@ -824,7 +850,7 @@ async def websocket_logs(websocket: WebSocket, job_id: str):
             pass
 
 @app.get("/v1/dashboard/stats")
-async def dashboard_stats():
+async def dashboard_stats(current_user: dict = Depends(get_current_user)):
     """
     [v1.0] Aggregated real-time stats for the dashboard.
     Returns: Agents, Market Status, Financials, System Health.
@@ -834,9 +860,10 @@ async def dashboard_stats():
     node_count = sum(n.get("total_nodes", 0) for n in market_data) if market_data else 0
     if node_count == 0: node_count = len(market_data) # Fallback if total_nodes missing
 
-    # 2. Financials (From Ledger)
-    ledger = state.get_ledger()
-    balance = ledger.get("balance", 0.0)
+    # 2. Financials (Real from DB)
+    real_balance = float(current_user.get("credits", 0.0))
+    # We remove the mock burn rate calculation as requested
+    est_hourly_burn = 0.0 
     # Estimate burn: sum of active job budgets or placeholder
     est_hourly_burn = 0.45 * 4 # Example: 4 active nodes x $0.45 avg
 
@@ -857,10 +884,10 @@ async def dashboard_stats():
         "system_health": 100 if error_count == 0 else 90, # Simple logic
         "alerts_count": error_count,
         "financials": {
-            "balance": balance,
+            "balance": real_balance,
             "currency": "USDC",
             "hourly_burn": est_hourly_burn,
-            "rewards_24h": ledger.get("rewards", 0.0)
+            "rewards_24h": 0.0 # Placeholder/Future implementation
         }
     }
 

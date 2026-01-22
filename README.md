@@ -22,6 +22,13 @@ Sistem artık çok daha yetenekli ve akıllı:
 -   **Akıllı Proje Analizi (Auditor v2):** Tek dosya değil, tüm projenizi (ZIP veya çoklu dosya) analiz eder. `main.py` ve `utils.py` arasındaki ilişkileri anlayarak "missing imports" hatalarını çözer.
 -   **Generative Planner (Architect LLM):** Statik kurallar yerine, projenize özel Docker ortamını yapay zeka tasarlar. CUDA sürümünü ve sistem paketlerini kodunuzun ihtiyacına göre belirler.
 -   **Gelişmiş Wizard:** Canlı Dashboard (VRAM, GPU, Sağlık Skoru), oturum kurtarma ve görsel onay mekanizmaları eklendi.
+-   **Hibrit Mimari (Hybrid Core):** Veritabanı katmanı artık hem **Local (SQLite)** hem de **Cloud (Supabase)** modlarında çalışabilir. İnternet bağlantınız kopsa bile yerel veritabanı ile çalışmaya devam edersiniz.
+
+## 🛡️ Güvenlik ve Kimlik Doğrulama
+Sistem, uçtan uca güvenli bir yapı üzerine kuruludur:
+*   **JWT Auth:** Frontend ve Backend arasındaki tüm iletişim (Analyze, Chat, Deploy) **JWT Token** ile şifrelenir.
+*   **Supabase Entegrasyonu:** Cloud modunda, Supabase'in güvenli auth altyapısını kullanır.
+*   **SSH Tunneling:** GPU sunucularına yapılan bağlantılar şifreli tüneller üzerinden gerçekleşir.
 
 ## 🧠 Çekirdek Ajanlar (Backend)
 
@@ -62,7 +69,8 @@ Sistem artık çok daha yetenekli ve akıllı:
     `.env.example` dosyasını `.env` olarak kopyalayın ve Supabase bilgilerinizi girin:
     ```bash
     cp .env.example .env
-    # .env dosyasını açıp SUPABASE_URL ve SUPABASE_KEY alanlarını doldurun.
+    # .env dosyasını açıp SUPABASE_URL, SUPABASE_KEY ve SUPABASE_JWT_SECRET alanlarını doldurun.
+    # Not: SUPABASE_JWT_SECRET anahtarınızı Supabase Panel -> Project Settings -> API -> JWT Settings altından alabilirsiniz.
     ```
 
 3.  **Sistemi Başlatın**

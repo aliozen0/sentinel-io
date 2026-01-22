@@ -25,9 +25,13 @@ export default function ChatPage() {
 
         try {
             // Include history in a real app
+            const token = localStorage.getItem("token")
+            const headers: any = { "Content-Type": "application/json" }
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/chat`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: headers,
                 body: JSON.stringify({ messages: [...messages, userMsg] })
             })
 

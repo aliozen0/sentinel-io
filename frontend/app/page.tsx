@@ -29,7 +29,21 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/dashboard/stats`)
+        const token = localStorage.getItem("token")
+        if (!token) return // AuthProvider will handle redirect
+
+        const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/dashboard/stats`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        })
+
+        if (res.status === 401) {
+          localStorage.removeItem("token")
+          window.location.href = "/login"
+          return
+        }
+
         if (res.ok) {
           const data = await res.json()
           setStats(data)
@@ -97,21 +111,17 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* 4. Financial Status (Treasury) */}
+        {/* 4. Financial Status (Real Balance) */}
         <Card className="border-emerald-500/20 bg-emerald-500/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-400">Treasury Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-emerald-400">Available Credits</CardTitle>
             <DollarSign className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold font-mono text-emerald-400">
-                {loading ? "..." : `$${stats?.financials.balance.toLocaleString()}`}
+                {loading ? "..." : `$${stats?.financials.balance.toFixed(2)}`}
               </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <TrendingDown className="h-3 w-3 text-red-400" />
-              <p className="text-xs text-red-400">-${stats?.financials.hourly_burn.toFixed(2)} / hr cost</p>
             </div>
           </CardContent>
         </Card>

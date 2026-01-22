@@ -128,6 +128,10 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
             const formData = new FormData()
             const isProject = files.length > 1 || files[0].name.endsWith('.zip')
 
+            const token = localStorage.getItem("token")
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             // Upload Logic
             if (isProject) {
                 for (let i = 0; i < files.length; i++) {
@@ -136,6 +140,7 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
 
                 const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload/project`, {
                     method: 'POST',
+                    headers: headers,
                     body: formData
                 })
 
@@ -221,6 +226,7 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                 formData.append('file', file)
                 const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
                     method: 'POST',
+                    headers: headers, // Reusing headers from above
                     body: formData
                 })
                 if (res.ok) {
@@ -249,9 +255,17 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
         setLoading(true)
         setResult(null)
         try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                window.location.href = "/login"
+                return
+            }
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/analyze`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
                 body: JSON.stringify({ code, budget, model: selectedModel })
             })
             if (res.ok) {

@@ -97,9 +97,13 @@ export default function StepExecution({ deploymentConfig, selectedGpu, onBack, o
 
             setLogs(prev => [...prev, "📤 İstek gönderiliyor..."])
 
+            const token = localStorage.getItem("token")
+            const headers: any = { 'Content-Type': 'application/json' }
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}${endpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify(body)
             })
 

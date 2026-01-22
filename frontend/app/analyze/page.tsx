@@ -176,9 +176,18 @@ export default function AnalyzePage() {
         setLoading(true)
         setResult(null)
         try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                window.location.href = "/login"
+                return
+            }
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/analyze`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     code,
                     budget,

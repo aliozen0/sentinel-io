@@ -179,9 +179,9 @@ class Sniper:
             try:
                 from db.client import get_db
                 db = get_db()
-                if db:
+                if db and db.mode == "CLOUD" and hasattr(db, 'supabase'):
                     # JSONB format requires list of dicts
-                    db.table("market_snapshots").insert({
+                    db.supabase.table("market_snapshots").insert({
                         "raw_data": nodes
                     }).execute()
                     logger.info("Market data saved to Supabase.")

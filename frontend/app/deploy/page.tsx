@@ -208,8 +208,13 @@ export default function DeployPage() {
             const formData = new FormData()
             formData.append('file', selectedFile)
 
+            const token = localStorage.getItem("token")
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             })
 
@@ -261,9 +266,13 @@ export default function DeployPage() {
                 }
             }
 
+            const token = localStorage.getItem("token")
+            const headers: any = { 'Content-Type': 'application/json' }
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/deploy/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify(body)
             })
 

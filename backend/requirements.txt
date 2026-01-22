@@ -22,3 +22,5 @@ fake-useragent
 paramiko
 cryptography
 pyjwt
+passlib
+bcrypt==4.0.1
