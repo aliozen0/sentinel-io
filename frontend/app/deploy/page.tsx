@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Terminal, Loader2, Upload, FileCode, CheckCircle2, XCircle, Rocket, Server, KeyRound, Copy, ExternalLink } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const WS_URL = NEXT_PUBLIC_API_URL.replace("http", "ws")
@@ -25,6 +26,22 @@ export default function DeployPage() {
     // Planned deployment state
     const [plannedConfig, setPlannedConfig] = useState<any>(null)
 
+    // Terminal State
+    const [terminalWs, setTerminalWs] = useState<WebSocket | null>(null)
+    const [terminalInput, setTerminalInput] = useState("")
+    const [terminalOutput, setTerminalOutput] = useState<string[]>([])
+    const [activeTab, setActiveTab] = useState("logs")
+
+    // Helper to strip ANSI codes and control characters
+    const cleanTerminalOutput = (text: string) => {
+        // Remove bracketed paste mode codes and standard ANSI colors
+        return text
+            .replace(/\x1b\[\?2004[hl]/g, '')
+            .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+            // Remove bell, backspace etc if needed, but keeping basic newlines
+            .replace(/[\x07]/g, '')
+    }
+
     // Check for Analyze params on mount
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -41,6 +58,60 @@ export default function DeployPage() {
             setShowSshModal(true)
         }
     }, [])
+
+    // Connect Interactive Terminal
+    const handleConnectTerminal = () => {
+        if (!sshConfig) {
+            setLogs(prev => [...prev, "❌ Configure SSH connection first"])
+            setShowSshModal(true)
+            return
+        }
+
+        setLogs(prev => [...prev, "🔌 Connecting to Interactive Terminal..."])
+
+        const ws = new WebSocket(`${WS_URL}/ws/terminal`)
+
+        ws.onopen = () => {
+            setLogs(prev => [...prev, "✅ Terminal WebSocket Connected"])
+            // Send auth config
+            ws.send(JSON.stringify({
+                type: "connect",
+                config: {
+                    hostname: sshConfig.hostname,
+                    port: sshConfig.port,
+                    username: sshConfig.username,
+                    password: sshConfig.password,
+                    privateKey: sshConfig.privateKey,
+                    passphrase: sshConfig.passphrase
+                }
+            }))
+            setTerminalWs(ws)
+        }
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data)
+            if (msg.type === "output") {
+                const cleanText = cleanTerminalOutput(msg.data)
+                if (cleanText.trim()) {
+                    setTerminalOutput(prev => [...prev, cleanText])
+                }
+            } else if (msg.type === "status") {
+                setTerminalOutput(prev => [...prev, `[STATUS] ${msg.data}`])
+                setActiveTab("terminal")
+            } else if (msg.type === "error") {
+                setTerminalOutput(prev => [...prev, `❌ Remote Error: ${msg.data}`])
+            }
+        }
+
+        ws.onclose = () => {
+            setLogs(prev => [...prev, "🔌 Terminal Disconnected"])
+            setTerminalWs(null)
+        }
+
+        ws.onerror = (e) => {
+            setLogs(prev => [...prev, "❌ WebSocket Error"])
+        }
+    }
 
     // File upload state
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -405,45 +476,116 @@ export default function DeployPage() {
                     </CardContent>
                 </Card>
 
-                {/* Terminal */}
-                <Card className="col-span-1 lg:col-span-2 flex flex-col bg-zinc-950 border-zinc-800">
-                    <CardHeader className="py-3 border-b border-zinc-800 bg-zinc-900/50">
-                        <CardTitle className="text-sm flex items-center justify-between text-zinc-400">
+                {/* Terminal & Logs Tabs */}
+                <div className="col-span-1 lg:col-span-2 flex flex-col min-h-[500px]">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-2">
+                            <TabsList className="bg-zinc-900 border border-zinc-800">
+                                <TabsTrigger value="logs" className="text-xs">Deployment Logs</TabsTrigger>
+                                <TabsTrigger value="terminal" className="text-xs flex items-center gap-2">
+                                    <Terminal className="w-3 h-3" />
+                                    Interactive Terminal
+                                    {terminalWs && <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />}
+                                </TabsTrigger>
+                            </TabsList>
+
+                            {/* Control Buttons (Clear/Connect) */}
                             <div className="flex items-center gap-2">
-                                <Terminal className="w-4 h-4" />
-                                <span>Terminal</span>
+                                {activeTab === "terminal" && !terminalWs && connectionVerified && (
+                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleConnectTerminal}>
+                                        Connect SSH
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-zinc-500 hover:text-zinc-400"
+                                    onClick={() => activeTab === "logs" ? setLogs([]) : setTerminalOutput([])}
+                                >
+                                    Clear
+                                </Button>
+                                {terminalWs && activeTab === "terminal" && (
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => {
+                                            terminalWs.close()
+                                            setTerminalWs(null)
+                                        }}
+                                    >
+                                        Disconnect
+                                    </Button>
+                                )}
                             </div>
-                            <div className="flex items-center gap-3">
-                                {running && <div className="flex items-center gap-2 text-emerald-400"><div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /><span className="text-xs">Running</span></div>}
-                                {logs.length > 0 && <button onClick={() => setLogs([])} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>}
-                            </div>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 overflow-y-auto p-4 min-h-[500px] font-mono text-sm">
-                        {logs.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-zinc-600">
-                                <div className="text-center">
-                                    <Terminal className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                    <p>Ready for deployment</p>
-                                    <p className="text-xs mt-1">Click "Get Demo Server Credentials" to start</p>
+                        </div>
+
+                        <TabsContent value="logs" className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-4 font-mono text-sm overflow-y-auto mt-0 min-h-[500px]">
+                            {/* Logs Render */}
+                            {logs.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-zinc-600">
+                                    <div className="text-center">
+                                        <FileCode className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                                        <p>Waiting for deployment tasks...</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-0.5">
-                                {logs.map((line, i) => (
+                            ) : (
+                                logs.map((line, i) => (
                                     <div key={i} className={`whitespace-pre-wrap break-all leading-relaxed ${line.startsWith('❌') ? 'text-red-400' :
                                         line.startsWith('✅') ? 'text-emerald-400' :
                                             line.startsWith('⚠️') || line.startsWith('💡') ? 'text-yellow-400' :
                                                 line.startsWith('🚀') || line.startsWith('═') || line.startsWith('📌') ? 'text-blue-400 font-bold' :
                                                     line.startsWith('📋') || line.startsWith('📁') || line.startsWith('📍') || line.startsWith('🔄') ? 'text-cyan-400' :
-                                                        line.startsWith('   ') ? 'text-zinc-400 pl-2' : 'text-zinc-300'
+                                                        'text-zinc-300'
                                         }`}>{line}</div>
+                                ))
+                            )}
+                            <div ref={logEndRef} />
+                        </TabsContent>
+
+                        <TabsContent value="terminal" className="flex-1 bg-black border border-zinc-800 rounded-lg p-4 font-mono text-xs overflow-y-auto mt-0 min-h-[500px] flex flex-col shadow-inner shadow-zinc-900/50">
+                            {/* Terminal Output */}
+                            <div className="flex-1 space-y-0.5">
+                                {terminalOutput.map((line, i) => (
+                                    <span key={i} className="whitespace-pre-wrap break-all text-zinc-300 block">{line}</span>
                                 ))}
-                                <div ref={logEndRef} />
+                                {!terminalWs && terminalOutput.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-zinc-600">
+                                        <div className="text-center">
+                                            <Terminal className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                                            <p>Terminal disconnected</p>
+                                            <p className="text-xs mt-1">Click "Connect SSH" to start interactive session</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
+
+                            {/* Input Line */}
+                            {terminalWs && (
+                                <div className="mt-2 flex items-center gap-2 border-t border-zinc-800 pt-2 sticky bottom-0 bg-black">
+                                    <span className="text-emerald-500 font-bold text-sm">➜</span>
+                                    <input
+                                        type="text"
+                                        className="flex-1 bg-transparent border-none outline-none text-emerald-100 placeholder-zinc-700 font-bold"
+                                        autoFocus
+                                        value={terminalInput}
+                                        onChange={(e) => setTerminalInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                // Local echo (optional, but good for latency feel)
+                                                // setTerminalOutput(prev => [...prev, `➜ ${terminalInput}`])
+
+                                                terminalWs.send(JSON.stringify({ type: "input", data: terminalInput }))
+                                                setTerminalInput("")
+                                            }
+                                        }}
+                                        placeholder="Type command..."
+                                    />
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
+                </div>
             </div>
 
             {/* SSH Connection Modal */}
