@@ -226,7 +226,9 @@ class SSHManager:
         except paramiko.SSHException as e:
             yield f"❌ SSH Error: {str(e)}"
         except Exception as e:
-            yield f"❌ Execution Error: {str(e)}"
+            import traceback
+            traceback.print_exc()
+            yield f"❌ Execution Error: {repr(e)}"
         finally:
             if client:
                 client.close()

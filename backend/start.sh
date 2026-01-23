@@ -37,6 +37,8 @@ ssh-keygen -A
 echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
 echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+# Disable PAM to avoid authentication issues in some containers
+echo "UsePAM no" >> /etc/ssh/sshd_config
 
 echo "🚀 Starting SSH Daemon..."
 /usr/sbin/sshd
