@@ -62,16 +62,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
         user = db.get_user(user_id)
         
         if not user:
-            # If user exists in Token but not DB? (Rare, maybe sync issue)
-            # In Local mode, we seeded 'admin'.
-            logger.warning(f"User {user_id} authenticated but not found in DB.")
-            # We can return a basic user struct to avoid blocking if DB read fails
-            return {
-                "id": user_id,
-                "username": payload.get("username", "unknown"),
-                "credits": 0.0,
-                "mode": db.mode
-            }
+            # If user exists in Token but not DB? (Rare, maybe sync issue or switching modes)
+            logger.warning(f"User {user_id} authenticated but not found in DB. Auto-provisioning...")
+            
+            # Extract info from payload
+            username = payload.get("username") or payload.get("email", "user").split("@")[0]
+            
+            # JIT Provisioning
+            db.ensure_profile(user_id, username)
+            
+            # Fetch again or return basic structure
+            user = db.get_user(user_id)
+            if not user:
+                 # If still fails, return ephemeral (will likely fail FK later but we tried)
+                 return {
+                    "id": user_id,
+                    "username": username,
+                    "credits": 0.0,
+                    "mode": db.mode
+                 }
             
         return {**user, "mode": db.mode}
         

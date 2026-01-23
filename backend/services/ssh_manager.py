@@ -30,41 +30,36 @@ class SSHManager:
         pkey = None
         password = passphrase if passphrase else None
         
-        # Try RSA
-        try:
-            pkey = paramiko.RSAKey.from_private_key(io.StringIO(private_key_str), password=password)
-            return pkey
-        except paramiko.ssh_exception.PasswordRequiredException:
-            raise ValueError("Key is encrypted. Please provide passphrase.")
-        except Exception:
-            pass
+        # Guard against None
+        if not private_key_str:
+            return None
+
+        # Clean up key string
+        private_key_str = private_key_str.strip()
         
-        # Try Ed25519
-        try:
-            pkey = paramiko.Ed25519Key.from_private_key(io.StringIO(private_key_str), password=password)
-            return pkey
-        except paramiko.ssh_exception.PasswordRequiredException:
-            raise ValueError("Key is encrypted. Please provide passphrase.")
-        except Exception:
-            pass
+        # Common classes to try
+        key_classes = [
+            (paramiko.RSAKey, "RSA"),
+            (paramiko.Ed25519Key, "Ed25519"),
+            (paramiko.ECDSAKey, "ECDSA"),
+            (paramiko.DSSKey, "DSA")
+        ]
         
-        # Try ECDSA
-        try:
-            pkey = paramiko.ECDSAKey.from_private_key(io.StringIO(private_key_str), password=password)
-            return pkey
-        except paramiko.ssh_exception.PasswordRequiredException:
-            raise ValueError("Key is encrypted. Please provide passphrase.")
-        except Exception:
-            pass
+        errors = []
         
-        # Try DSA (legacy but still used)
-        try:
-            pkey = paramiko.DSSKey.from_private_key(io.StringIO(private_key_str), password=password)
-            return pkey
-        except Exception:
-            pass
-                
-        raise ValueError("Invalid Private Key format. Supported: RSA, Ed25519, ECDSA, DSA (PEM format)")
+        for k_class, name in key_classes:
+            try:
+                # Need to seek(0) if reusing config, but here we create new StringIO each time
+                pkey = k_class.from_private_key(io.StringIO(private_key_str), password=password)
+                return pkey
+            except paramiko.ssh_exception.PasswordRequiredException:
+                raise ValueError("Key is encrypted. Please provide passphrase.")
+            except Exception as e:
+                errors.append(f"{name}: {str(e)}")
+        
+        # If all failed
+        logger.error(f"SSH Key Parse Errors: {'; '.join(errors)}")
+        raise ValueError(f"Invalid Private Key format. Tried RSA, Ed25519, ECDSA, DSA. Details: {errors[0] if errors else 'Unknown'}")
 
     @staticmethod
     async def test_connection(

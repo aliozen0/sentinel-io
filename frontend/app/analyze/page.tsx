@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { CheckCircle2, AlertTriangle, XCircle, Search, Cpu, Package, Terminal, Zap, Upload, FileCode, Clock, Brain, Server, Activity } from "lucide-react"
+import { CheckCircle2, AlertTriangle, XCircle, Search, Cpu, Package, Terminal, Zap, Upload, FileCode, Clock, Brain, Server, Activity, RotateCcw } from "lucide-react"
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const ANALYZE_STORAGE_KEY = "io-guard-analyze-session"
 
 // Pipeline Step Component
 function PipelineStep({ step, isActive }: { step: any, isActive: boolean }) {
@@ -83,10 +84,15 @@ function PipelineStep({ step, isActive }: { step: any, isActive: boolean }) {
 export default function AnalyzePage() {
     const [code, setCode] = useState("")
     const [fileName, setFileName] = useState<string | null>(null)
+    const [fileInfo, setFileInfo] = useState<any>(null) // New state for file metadata
     const [budget, setBudget] = useState(10.0)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<any>(null)
     const [isDragging, setIsDragging] = useState(false)
+    const [showResetConfirm, setShowResetConfirm] = useState(false) // State for confirmation modal
+    const [jobId, setJobId] = useState<string | null>(null)
+    const [pipelineTrace, setPipelineTrace] = useState<any[]>([])
+    const resultRef = useRef<HTMLDivElement>(null) // Ref for scrolling
     const [showPipeline, setShowPipeline] = useState(true)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -95,13 +101,100 @@ export default function AnalyzePage() {
     const [selectedModel, setSelectedModel] = useState<string>("")
     const [loadingModels, setLoadingModels] = useState(true)
 
+    // Load from sessionStorage on mount
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem(ANALYZE_STORAGE_KEY)
+            if (stored) {
+                const parsed = JSON.parse(stored)
+                if (parsed.code) setCode(parsed.code)
+                if (parsed.fileName) setFileName(parsed.fileName)
+                if (parsed.fileInfo) setFileInfo(parsed.fileInfo)
+                if (parsed.budget) setBudget(parsed.budget)
+                if (parsed.result) {
+                    setResult(parsed.result)
+                    // Restore trace from result if available
+                    if (parsed.result.pipeline_trace?.steps) {
+                        setPipelineTrace(parsed.result.pipeline_trace.steps)
+                    }
+                }
+                if (parsed.selectedModel) setSelectedModel(parsed.selectedModel)
+                if (parsed.jobId) setJobId(parsed.jobId)
+            }
+        } catch (e) {
+            console.error("Failed to load analyze session:", e)
+        }
+    }, [])
+
+    // Save to sessionStorage on state changes
+    useEffect(() => {
+        if (code || result) {
+            try {
+                sessionStorage.setItem(ANALYZE_STORAGE_KEY, JSON.stringify({
+                    code, fileName, fileInfo, budget, result, selectedModel, jobId
+                }))
+            } catch (e) {
+                console.error("Failed to save analyze session:", e)
+            }
+        }
+    }, [code, fileName, budget, result, selectedModel, jobId, fileInfo])
+
+    // Fetch active session from server (Persistence)
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                // strict check: if we verify we have a jobId in local storage, we skip overwriting
+                // unless we want to sync status. 
+                // BUT, if this is a new tab (jobId is null), we definitely want to check server.
+                const token = localStorage.getItem("token")
+                if (!token) return
+
+                const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/analyze/history`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                })
+
+                if (res.ok) {
+                    const data = await res.json()
+                    // Find active job (RUNNING or PENDING)
+                    const activeJob = data.jobs?.find((j: any) =>
+                        ["PENDING", "RUNNING"].includes(j.status)
+                    )
+
+                    if (activeJob) {
+                        console.log("Found active job from server:", activeJob.id)
+
+                        // If we are blank or different, sync
+                        if (!jobId || jobId !== activeJob.id) {
+                            setJobId(activeJob.id)
+
+                            // Restore metadata if available
+                            if (activeJob.metadata) {
+                                if (activeJob.metadata.code) setCode(activeJob.metadata.code)
+                                if (activeJob.metadata.input_budget) setBudget(activeJob.metadata.input_budget)
+                                if (activeJob.metadata.model) setSelectedModel(activeJob.metadata.model)
+                                if (activeJob.metadata.pipeline_trace) setPipelineTrace(activeJob.metadata.pipeline_trace)
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch history:", e)
+            }
+        }
+
+        // Short delay to let session storage load first, then check server
+        setTimeout(fetchHistory, 500)
+    }, [])
+
+
     // Fetch models on mount
     useEffect(() => {
         fetch(`${NEXT_PUBLIC_API_URL}/v1/models`)
             .then(res => res.json())
             .then(data => {
                 setModels(data.models)
-                setSelectedModel(data.default_model)
+                // Only set default if not restored from session
+                if (!selectedModel) setSelectedModel(data.default_model)
                 setLoadingModels(false)
             })
             .catch(err => {
@@ -110,20 +203,105 @@ export default function AnalyzePage() {
             })
     }, [])
 
-    // Handle file selection
-    const handleFileSelect = (file: File) => {
-        if (!file.name.endsWith('.py')) {
-            alert('Please select a Python file (.py)')
-            return
-        }
+    // Handle file upload (Single or Project)
+    const handleFileUpload = async (files: FileList) => {
+        if (!files || files.length === 0) return
+        setLoading(true) // Show loading on textarea if needed or just use uploading state
+        setCode("# Yükleniyor...")
+        setResult(null)
 
-        const reader = new FileReader()
-        reader.onload = (e) => {
-            const content = e.target?.result as string
-            setCode(content)
-            setFileName(file.name)
+        try {
+            const formData = new FormData()
+            // Check if multiple files or ZIP
+            const isProject = files.length > 1 || files[0].name.endsWith('.zip')
+
+            const token = localStorage.getItem("token")
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
+            // Add files to FormData
+            if (isProject) {
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i])
+                }
+            } else {
+                formData.append('file', files[0])
+            }
+
+            // Decide Endpoint
+            const endpoint = isProject ? '/v1/upload/project' : '/v1/upload'
+
+            const res = await fetch(`${NEXT_PUBLIC_API_URL}${endpoint}`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.detail || "Upload failed")
+            }
+
+            // Handle Response
+            if (isProject) {
+                const info = {
+                    ...data,
+                    isProject: true,
+                    filename: `${data.file_count || files.length} files (${files[0].name.endsWith('.zip') ? 'ZIP' : 'Folder'})`
+                }
+                setFileName(info.filename)
+
+                // Fetch Code Content for Project
+                // Helper to fetch text from project dir
+                const fetchProjectFile = async (path: string) => {
+                    try {
+                        const res = await fetch(`${NEXT_PUBLIC_API_URL}/uploads/project_${data.project_id}/${path}`)
+                        if (res.ok) return await res.text()
+                    } catch (e) { console.error(e) }
+                    return null
+                }
+
+                let combinedCode = ""
+                // 1. Entry Point
+                if (data.entry_point) {
+                    const entryContent = await fetchProjectFile(data.entry_point)
+                    if (entryContent) combinedCode += `# === ENTRY POINT: ${data.entry_point} ===\n${entryContent}\n\n`
+                }
+
+                // 2. Fetch other important files
+                if (data.files) {
+                    const otherFiles = data.files.filter((f: any) =>
+                        f.filename !== data.entry_point &&
+                        (f.filename.endsWith('.py') || f.filename.endsWith('.yaml') || f.filename === 'requirements.txt')
+                    )
+
+                    for (const f of otherFiles.slice(0, 5)) {
+                        const content = await fetchProjectFile(f.filename)
+                        if (content) combinedCode += `# === FILE: ${f.filename} ===\n${content}\n\n`
+                    }
+                    if (otherFiles.length > 5) combinedCode += `# ... and ${otherFiles.length - 5} more files ...`
+                }
+
+                setCode(combinedCode)
+
+            } else {
+                // Single File
+                setFileName(data.original_name)
+                // Fetch content from URL or just read locally (we already have the file)
+                const reader = new FileReader()
+                reader.onload = (e) => setCode(e.target?.result as string)
+                reader.readAsText(files[0])
+            }
+
+        } catch (err: any) {
+            console.error(err)
+            alert(`Yükleme hatası: ${err.message}`)
+            setCode("")
+            setFileName(null)
+        } finally {
+            setLoading(false)
         }
-        reader.readAsText(file)
     }
 
     // Drag & Drop handlers
@@ -143,7 +321,7 @@ export default function AnalyzePage() {
 
         const files = e.dataTransfer.files
         if (files.length > 0) {
-            handleFileSelect(files[0])
+            handleFileUpload(files)
         }
     }
 
@@ -154,17 +332,31 @@ export default function AnalyzePage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (files && files.length > 0) {
-            handleFileSelect(files[0])
+            handleFileUpload(files)
         }
     }
 
     const handleClearFile = () => {
         setCode("")
         setFileName(null)
+        setFileInfo(null)
         setResult(null)
         if (fileInputRef.current) {
             fileInputRef.current.value = ""
         }
+    }
+
+    const handleReset = () => {
+        setShowResetConfirm(true)
+    }
+
+    const executeReset = () => {
+        handleClearFile()
+        setBudget(10.0)
+        setJobId(null)
+        setPipelineTrace([])
+        sessionStorage.removeItem(ANALYZE_STORAGE_KEY)
+        setShowResetConfirm(false)
     }
 
     const handleAnalyze = async () => {
@@ -175,6 +367,8 @@ export default function AnalyzePage() {
 
         setLoading(true)
         setResult(null)
+        setPipelineTrace([])
+
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -196,14 +390,60 @@ export default function AnalyzePage() {
             })
             if (res.ok) {
                 const data = await res.json()
-                setResult(data)
+                setJobId(data.job_id)
+                // Don't set result yet, wait for WebSocket updates
+            } else {
+                const err = await res.json()
+                alert(err.detail || "Analysis failed")
+                setLoading(false)
             }
         } catch (error) {
             console.error(error)
-        } finally {
             setLoading(false)
         }
     }
+
+    // WebSocket for Analysis Job
+    useEffect(() => {
+        if (!jobId) return
+
+        setLoading(true)
+        const wsUrl = NEXT_PUBLIC_API_URL.replace('http', 'ws')
+        const ws = new WebSocket(`${wsUrl}/ws/analyze/${jobId}`)
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+
+                if (data.pipeline_trace) {
+                    setPipelineTrace(data.pipeline_trace)
+                }
+
+                if (data.status === "COMPLETED" && data.result) {
+                    setResult(data.result)
+                    setLoading(false)
+                    setJobId(null) // Job done, stop tracking
+                    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+                } else if (data.status === "FAILED") {
+                    setLoading(false)
+                    setJobId(null)
+                    alert("Analysis Failed via Background Job")
+                }
+            } catch (e) {
+                console.error("WS Parse Error", e)
+            }
+        }
+
+        ws.onclose = () => {
+            // If connection closes but job not done? 
+            // We might want to reconnect or just leave it.
+            // For now, if closed by server (job done), we are fine.
+        }
+
+        return () => {
+            ws.close()
+        }
+    }, [jobId])
 
     const getScoreColor = (score: number) => {
         if (score >= 80) return "text-emerald-500"
@@ -217,6 +457,12 @@ export default function AnalyzePage() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Code Audit & Planning</h2>
                     <p className="text-zinc-400 mt-1">Upload your training script, get GPU recommendations</p>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={handleReset} size="sm" className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Sıfırla
+                    </Button>
                 </div>
             </div>
 
@@ -247,7 +493,8 @@ export default function AnalyzePage() {
                                 type="file"
                                 ref={fileInputRef}
                                 onChange={handleFileChange}
-                                accept=".py"
+                                accept=".py,.zip"
+                                multiple
                                 className="hidden"
                             />
 
@@ -275,10 +522,18 @@ export default function AnalyzePage() {
                                     onDragLeave={handleDragLeave}
                                     onDrop={handleDrop}
                                 >
+                                    {loading && (
+                                        <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-blue-400">
+                                            <Activity className="w-12 h-12 animate-spin mb-4" />
+                                            <p className="font-semibold text-lg animate-pulse">Analiz Ediliyor...</p>
+                                            <p className="text-sm text-blue-300 mt-2">Bu işlem 10-30 saniye sürebilir.</p>
+                                        </div>
+                                    )}
                                     <Textarea
-                                        className="font-mono text-xs h-full min-h-[300px] bg-zinc-950 border-zinc-800 resize-none"
+                                        className="font-mono text-xs h-full min-h-[300px] bg-zinc-950 border-zinc-800 resize-none p-4"
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
+                                        disabled={loading}
                                     />
                                 </div>
                             )}
@@ -321,7 +576,7 @@ export default function AnalyzePage() {
                     </Card>
 
                     {/* Pipeline Trace */}
-                    {(loading || result?.pipeline_trace) && (
+                    {(loading || pipelineTrace.length > 0) && (
                         <Card className="bg-zinc-900/50 border-zinc-800">
                             <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center gap-2 text-base">
@@ -339,29 +594,21 @@ export default function AnalyzePage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-2">
-                                {loading && !result ? (
-                                    // Loading state
+                                {pipelineTrace.length > 0 ? (
                                     <div className="space-y-2">
-                                        <PipelineStep
-                                            step={{ step: 1, agent: "Auditor", status: "running", action: "Sending code to LLM..." }}
-                                            isActive={true}
-                                        />
-                                        <PipelineStep
-                                            step={{ step: 2, agent: "Architect", status: "pending", action: "Waiting..." }}
-                                            isActive={false}
-                                        />
-                                        <PipelineStep
-                                            step={{ step: 3, agent: "Sniper", status: "pending", action: "Waiting..." }}
-                                            isActive={false}
-                                        />
-                                    </div>
-                                ) : result?.pipeline_trace?.steps ? (
-                                    <div className="space-y-2">
-                                        {result.pipeline_trace.steps.map((step: any, i: number) => (
-                                            <PipelineStep key={i} step={step} isActive={false} />
+                                        {pipelineTrace.map((step, idx) => (
+                                            <PipelineStep
+                                                key={step.step || idx}
+                                                step={step}
+                                                isActive={step.status === 'running'}
+                                            />
                                         ))}
                                     </div>
-                                ) : null}
+                                ) : (
+                                    <div className="text-zinc-500 text-xs p-4 text-center animate-pulse">
+                                        Starting analysis agents...
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -370,7 +617,7 @@ export default function AnalyzePage() {
                 {/* Output Column */}
                 <div className="space-y-4 overflow-y-auto">
                     {result ? (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div ref={resultRef} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
                             {/* Summary Card */}
                             {result.summary && (
@@ -544,6 +791,39 @@ export default function AnalyzePage() {
                     )}
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            {showResetConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-xl scale-100 animate-in zoom-in-95 duration-200">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-red-400">
+                                <AlertTriangle className="w-5 h-5" />
+                                Sıfırlama Onayı
+                            </CardTitle>
+                            <CardDescription>
+                                Mevcut analizi, yüklenen dosyaları ve tüm ayarları temizlemek üzeresiniz. Bu işlem geri alınamaz.
+                            </CardDescription>
+                        </CardHeader>
+                        <div className="p-6 pt-0 flex justify-end gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowResetConfirm(false)}
+                                className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+                            >
+                                İptal
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={executeReset}
+                                className="bg-red-600 hover:bg-red-700"
+                            >
+                                Evet, Sıfırla
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     )
 }

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const WS_URL = NEXT_PUBLIC_API_URL.replace("http", "ws")
+const DEPLOY_STORAGE_KEY = "io-guard-deploy-session"
 
 import { SshConnectionModal } from "@/components/ssh-connection-modal"
 
@@ -32,15 +33,63 @@ export default function DeployPage() {
     const [terminalOutput, setTerminalOutput] = useState<string[]>([])
     const [activeTab, setActiveTab] = useState("logs")
 
+    // File upload state (moved up for sessionStorage effect)
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [uploadedFile, setUploadedFile] = useState<any>(null)
+    const [uploading, setUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
     // Helper to strip ANSI codes and control characters
     const cleanTerminalOutput = (text: string) => {
-        // Remove bracketed paste mode codes and standard ANSI colors
         return text
             .replace(/\x1b\[\?2004[hl]/g, '')
             .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
-            // Remove bell, backspace etc if needed, but keeping basic newlines
             .replace(/[\x07]/g, '')
     }
+
+    // Load from sessionStorage on mount
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem(DEPLOY_STORAGE_KEY)
+            if (stored) {
+                const parsed = JSON.parse(stored)
+                if (parsed.sshConfig) {
+                    setSshConfig(parsed.sshConfig)
+                    // Security: We don't store keys in sessionStorage, so on reload we must re-authenticate
+                    setConnectionVerified(false)
+                }
+                // Don't restore logs automatically to avoid confusion with stale sessions
+                // if (parsed.logs) setLogs(parsed.logs)
+                if (parsed.uploadedFile) setUploadedFile(parsed.uploadedFile)
+            }
+        } catch (e) {
+            console.error("Failed to load deploy session:", e)
+        }
+    }, [])
+
+    // Save to sessionStorage on state changes (exclude sensitive data)
+    useEffect(() => {
+        if (logs.length > 0 || sshConfig || uploadedFile) {
+            try {
+                // Don't save privateKey or password to sessionStorage for security
+                const safeSshConfig = sshConfig ? {
+                    hostname: sshConfig.hostname,
+                    port: sshConfig.port,
+                    username: sshConfig.username,
+                    authType: sshConfig.authType
+                    // privateKey and password excluded
+                } : null
+
+                sessionStorage.setItem(DEPLOY_STORAGE_KEY, JSON.stringify({
+                    logs: logs.slice(-100), // Keep last 100 logs
+                    sshConfig: safeSshConfig,
+                    uploadedFile
+                }))
+            } catch (e) {
+                console.error("Failed to save deploy session:", e)
+            }
+        }
+    }, [logs, sshConfig, uploadedFile])
 
     // Check for Analyze params on mount
     useEffect(() => {
@@ -113,11 +162,6 @@ export default function DeployPage() {
         }
     }
 
-    // File upload state
-    const [selectedFile, setSelectedFile] = useState<File | null>(null)
-    const [uploadedFile, setUploadedFile] = useState<any>(null)
-    const [uploading, setUploading] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Copy to clipboard helper
     const copyToClipboard = async (text: string, label: string) => {
@@ -185,10 +229,12 @@ export default function DeployPage() {
 
     // Handle file selection
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            if (!file.name.endsWith('.py')) {
-                setLogs(prev => [...prev, "❌ Only Python (.py) files are allowed"])
+        const files = e.target.files
+        if (files && files.length > 0) {
+            // Check for ZIP
+            const file = files[0]
+            if (!file.name.endsWith('.py') && !file.name.endsWith('.zip')) {
+                setLogs(prev => [...prev, "❌ Only .py files or .zip archives are allowed"])
                 return
             }
             setSelectedFile(file)
@@ -200,19 +246,26 @@ export default function DeployPage() {
     // Upload file to backend
     const handleUpload = async () => {
         if (!selectedFile) return
-
         setUploading(true)
         setLogs(prev => [...prev, `📤 Uploading ${selectedFile.name}...`])
 
         try {
             const formData = new FormData()
-            formData.append('file', selectedFile)
+            const isProject = selectedFile.name.endsWith('.zip')
+
+            if (isProject) {
+                formData.append('files', selectedFile)
+            } else {
+                formData.append('file', selectedFile)
+            }
 
             const token = localStorage.getItem("token")
             const headers: any = {}
             if (token) headers["Authorization"] = `Bearer ${token}`
 
-            const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload`, {
+            const endpoint = isProject ? '/v1/upload/project' : '/v1/upload'
+
+            const res = await fetch(`${NEXT_PUBLIC_API_URL}${endpoint}`, {
                 method: 'POST',
                 headers: headers,
                 body: formData
@@ -220,11 +273,20 @@ export default function DeployPage() {
 
             if (res.ok) {
                 const data = await res.json()
-                setUploadedFile(data)
+                // Normalize result
+                const result = isProject ? {
+                    ...data,
+                    isProject: true,
+                    local_path: data.project_dir, // Use project dir for project execution
+                    size: selectedFile.size
+                } : data
+
+                setUploadedFile(result)
+
                 setLogs(prev => [...prev,
                     `✅ Upload successful!`,
-                `   📍 Server path: ${data.local_path}`,
-                `   📊 Size: ${data.size} bytes`
+                `   📍 Server path: ${result.local_path}`,
+                `   📊 Type: ${isProject ? 'Project Archive' : 'Single Script'}`
                 ])
             } else {
                 const error = await res.json()
@@ -248,64 +310,81 @@ export default function DeployPage() {
         setLogs(prev => [...prev, "", "═".repeat(50), "🚀 STARTING REMOTE EXECUTION", "═".repeat(50)])
 
         try {
-            const body: any = {
+            const isProject = uploadedFile.isProject
+
+            // For single file
+            const bodySingle: any = {
                 hostname: sshConfig.hostname,
                 username: sshConfig.username,
                 port: sshConfig.port || 22,
                 auth_type: sshConfig.authType || "key",
-                script_path: uploadedFile.local_path
-            };
-
-            // Add auth credentials based on type
-            if (sshConfig.authType === "password") {
-                body.password = sshConfig.password;
-            } else {
-                body.private_key = sshConfig.privateKey;
-                if (sshConfig.passphrase) {
-                    body.passphrase = sshConfig.passphrase;
-                }
+                script_path: uploadedFile.local_path,
+                private_key: sshConfig.privateKey,
+                password: sshConfig.password,
+                passphrase: sshConfig.passphrase
             }
 
-            const token = localStorage.getItem("token")
-            const headers: any = { 'Content-Type': 'application/json' }
-            if (token) headers["Authorization"] = `Bearer ${token}`
+            // For project
+            const bodyProject: any = {
+                ...bodySingle,
+                project_dir: uploadedFile.local_path, // From upload/project response (local_path assigned to project_dir in response normalization)
+                entry_point: uploadedFile.entry_point,
+                install_requirements: true,
+                type: "project"
+            }
 
-            const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/deploy/execute`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(body)
+            const endpoint = isProject ? '/v1/deploy/project' : '/v1/deploy/execute'
+            const payload = isProject ? bodyProject : bodySingle
+
+            const res = await fetch(`${NEXT_PUBLIC_API_URL}${endpoint}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
             })
 
-            if (res.ok) {
-                const data = await res.json()
-                setJobId(data.job_id)
-                setLogs(prev => [...prev, `📋 Job ID: ${data.job_id}`])
+            if (!res.ok) {
+                const err = await res.json()
+                throw new Error(err.detail || "Failed to start execution")
+            }
 
-                const ws = new WebSocket(`${WS_URL}/ws/execute/${data.job_id}`)
+            const data = await res.json()
+            const jobId = data.job_id
+            setJobId(jobId)
 
-                ws.onmessage = (event) => {
-                    setLogs(prev => [...prev, event.data])
+            setLogs(prev => [...prev, `📋 Job ID: ${jobId}`, `🚀 Starting job: ${jobId}`])
+
+            // Connect WebSocket
+            const wsEndpoint = isProject ? `/ws/execute-project/${jobId}` : `/ws/execute/${jobId}`
+            const ws = new WebSocket(`${WS_URL}${wsEndpoint}`)
+
+            ws.onopen = () => {
+                setLogs(prev => [...prev, "INFO: Connection open"])
+            }
+
+            ws.onmessage = (event) => {
+                if (event.data.includes("INFO:")) return
+                setLogs(prev => [...prev, event.data])
+
+                const lowerMsg = event.data.toLowerCase()
+                if (lowerMsg.includes("completed") || lowerMsg.includes("error") && !lowerMsg.includes("info")) {
+                    if (lowerMsg.includes("completed")) {
+                        setRunning(false)
+                    }
                 }
+            }
 
-                ws.onclose = () => {
-                    setRunning(false)
-                    setLogs(prev => [...prev, "", "═".repeat(50), "📌 EXECUTION COMPLETED", "═".repeat(50)])
-                }
-
-                ws.onerror = () => {
-                    setLogs(prev => [...prev, `❌ WebSocket connection error`])
-                    setRunning(false)
-                }
-            } else {
-                const error = await res.json()
-                setLogs(prev => [...prev, `❌ Failed: ${error.detail}`])
+            ws.onclose = () => {
+                setLogs(prev => [...prev, "INFO: Connection closed"])
                 setRunning(false)
             }
-        } catch (err) {
-            setLogs(prev => [...prev, `❌ Execution error: ${err}`])
+
+        } catch (err: any) {
+            setLogs(prev => [...prev, `❌ Execution Error: ${err.message}`])
             setRunning(false)
         }
     }
+
+
 
     // Auto-scroll logs
     useEffect(() => {
@@ -415,7 +494,7 @@ export default function DeployPage() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept=".py"
+                                    accept=".py,.zip"
                                     onChange={handleFileSelect}
                                     className="hidden"
                                 />
@@ -431,7 +510,7 @@ export default function DeployPage() {
                                     >
                                         <Upload className="w-8 h-8 mx-auto mb-2 text-zinc-500 group-hover:text-zinc-300" />
                                         <p className="text-sm text-zinc-400 group-hover:text-zinc-200">
-                                            Select Python file
+                                            Select Python file or ZIP
                                         </p>
                                     </button>
                                 ) : (

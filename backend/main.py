@@ -28,6 +28,15 @@ from agents.sniper import Sniper, GPUNode
 from agents.architect import Architect, EnvironmentConfig
 from agents.executor import Executor
 
+# New Agents
+from agents.auditor import Auditor, AuditReport
+from agents.sniper import Sniper, GPUNode
+from agents.architect import Architect, EnvironmentConfig
+from agents.executor import Executor
+
+# Jobs
+from jobs.analysis_job import run_analysis_bg
+
 # Demo Routes
 from routes import demo
 
@@ -66,7 +75,7 @@ class JobManager:
             "install_requirements": config.get("install_requirements"),
             "type": config.get("type")
         }
-        db.create_job(job_id, job_type, "pending", metadata)
+        db.create_job(job_id, job_type, config.get("status", "PENDING"), metadata)
         
         # Store credentials in memory (NEVER persisted)
         cls._credentials_cache[job_id] = {
@@ -163,6 +172,7 @@ class AnalyzeRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
+    model: Optional[str] = None
 
 class DeploySimulateRequest(BaseModel):
     job_config: Dict
@@ -200,142 +210,130 @@ async def get_available_models():
 @app.post("/v1/analyze")
 async def analyze_code(request: AnalyzeRequest, current_user: dict = Depends(get_current_user)):
     """
-    [v1.0] Analyzes code and recommends GPU nodes.
-    Protected by Hybrid Auth.
+    [v1.0] Starts background code analysis job.
+    Returns job_id for WebSocket tracking.
     """
-    import time
-    import os
+    import uuid
     
-    # Get model - use request model or fall back to env default
-    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
-    model_name = request.model if request.model else default_model
-    api_base = os.getenv("IO_BASE_URL", "api.intelligence.io.solutions")
-    
-    pipeline_trace = []
-    
-    # === STEP 1: Auditor (LLM Analysis) ===
-    step1_start = time.time()
-    pipeline_trace.append({
-        "step": 1,
-        "agent": "Auditor",
-        "status": "running",
-        "action": "Sending code to LLM for analysis...",
-        "details": {
-            "model": model_name,
-            "api": api_base.replace("https://", "").replace("/api/v1/", ""),
-            "code_length": len(request.code)
-        }
-    })
-    
-    audit_report = await Auditor.analyze_code(request.code, model=model_name)
-    step1_time = round(time.time() - step1_start, 2)
-    
-    pipeline_trace[0]["status"] = "completed"
-    pipeline_trace[0]["duration_sec"] = step1_time
-    pipeline_trace[0]["result"] = {
-        "framework": audit_report.framework,
-        "vram": f"{audit_report.vram_min_gb} GB",
-        "health_score": audit_report.health_score,
-        "issues_found": len(audit_report.critical_issues)
-    }
-    
-    
-    # Check Credits - Now with actual deduction!
     user_id = current_user.get("id")
     cost = CREDIT_COSTS["analyze"]
     user_credits = float(current_user.get("credits", 0.0))
     
     if user_credits < cost:
-        raise HTTPException(
-            status_code=402, 
-            detail=f"Yetersiz kredi. Gereken: {cost}, Mevcut: {user_credits:.2f}"
-        )
+        raise HTTPException(status_code=402, detail=f"Insufficient credits. Required: {cost}, Available: {user_credits:.2f}")
     
-    # Deduct credits for analysis
+    # Deduct credits upfront
     db = get_db()
     if not db.deduct_credits(user_id, cost, "Code Analysis"):
-        raise HTTPException(status_code=402, detail="Kredi düşürme başarısız.")
+        raise HTTPException(status_code=402, detail="Credit deduction failed")
 
-    # === STEP 2: Architect (Environment Planning) ===
-    step2_start = time.time()
-    pipeline_trace.append({
-        "step": 2,
-        "agent": "Architect",
-        "status": "running",
-        "action": "Analyzing imports and planning environment...",
-        "details": {
-            "framework": audit_report.framework,
-            "vram_required": audit_report.vram_min_gb
-        }
-    })
-    
-    env_config = await Architect.plan_environment(
-        framework=audit_report.framework,
+    # Create Job
+    job_id = f"audit_{uuid.uuid4().hex[:8]}"
+    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
+    model_name = request.model if request.model else default_model
+
+    metadata = {
+        "user_id": user_id,
+        "mode": "ANALYSIS",
+        "code_snippet": request.code[:100] + "...", 
+        "code": request.code, # Store full code for session restoration
+        "model": model_name,
+        "input_budget": request.budget,
+        "pipeline_trace": [],
+        "final_result": None
+    }
+
+    if not db.create_job(job_id, "ANALYSIS", "PENDING", metadata):
+         # Refund if job creation fails
+         db.add_credits(user_id, cost, "Refund: Job Init Failed")
+         raise HTTPException(status_code=500, detail="Failed to initialize analysis job")
+
+    # Start Background Task
+    asyncio.create_task(run_analysis_bg(
+        job_id=job_id,
         code=request.code,
-        vram_gb=audit_report.vram_min_gb
-    )
-    step2_time = round(time.time() - step2_start, 2)
+        user_id=user_id,
+        budget=request.budget,
+        model_name=model_name
+    ))
     
-    pipeline_trace[1]["status"] = "completed"
-    pipeline_trace[1]["duration_sec"] = step2_time
-    pipeline_trace[1]["result"] = {
-        "base_image": env_config.base_image,
-        "packages_detected": len(env_config.python_packages),
-        "cuda_version": env_config.cuda_version
-    }
     
-    # === STEP 3: Sniper (Market Analysis) ===
-    step3_start = time.time()
-    gpu_model = "RTX 4090" if audit_report.vram_min_gb > 20 else "RTX 3090"
-    
-    pipeline_trace.append({
-        "step": 3,
-        "agent": "Sniper",
-        "status": "running",
-        "action": "Fetching live GPU prices from io.net...",
-        "details": {
-            "api": "api.io.solutions/v1/io-explorer/network/market-snapshot",
-            "target_gpu": gpu_model,
-            "budget": f"${request.budget}/hr"
-        }
-    })
-    
-    best_nodes = await Sniper.get_best_nodes(
-        budget_hourly=request.budget, 
-        gpu_model=gpu_model
-    )
-    step3_time = round(time.time() - step3_start, 2)
-    
-    pipeline_trace[2]["status"] = "completed"
-    pipeline_trace[2]["duration_sec"] = step3_time
-    pipeline_trace[2]["result"] = {
-        "nodes_found": len(best_nodes),
-        "best_price": f"${best_nodes[0].price_hourly}/hr" if best_nodes else "N/A"
-    }
-    
-    total_time = round(step1_time + step2_time + step3_time, 2)
-    
-    analysis_result = {
-        "audit": audit_report.dict(),
-        "environment": env_config.dict(),
-        "market_recommendations": [node.dict() for node in best_nodes],
-        "summary": {
-            "framework": audit_report.framework,
-            "vram_required": f"{audit_report.vram_min_gb} GB",
-            "recommended_gpu": gpu_model,
-            "estimated_setup": f"{env_config.estimated_setup_time_min} min",
-            "health_score": audit_report.health_score
-        },
-        "pipeline_trace": {
-            "total_duration_sec": total_time,
-            "steps": pipeline_trace
-        }
-    }
-    
-    # Store in state for Chat Agent context
-    state.last_analysis = analysis_result
+    return {"job_id": job_id, "status": "PENDING"}
 
-    return analysis_result
+
+@app.get("/v1/analyze/history")
+async def get_analyze_history(current_user: dict = Depends(get_current_user)):
+    """
+    [v1.0] Returns the user's analysis job history.
+    Useful for restoring session state.
+    """
+    user_id = current_user.get("id")
+    db = get_db()
+    
+    jobs = db.get_user_jobs(user_id)
+    
+    # Filter for analysis jobs only
+    analysis_jobs = [j for j in jobs if j.get("mode") == "ANALYSIS"]
+    
+    # Parse metadata strings if local mode
+    for job in analysis_jobs:
+        if isinstance(job.get("metadata"), str):
+            import json
+            try:
+                job["metadata"] = json.loads(job["metadata"])
+            except:
+                job["metadata"] = {}
+                
+    return {"jobs": analysis_jobs}
+
+
+@app.websocket("/ws/analyze/{job_id}")
+async def websocket_analyze(websocket: WebSocket, job_id: str):
+    await websocket.accept()
+    db = get_db()
+    try:
+        last_status = None
+        last_trace_len = 0
+        
+        while True:
+            job = db.get_job(job_id)
+            if not job:
+                await websocket.send_json({"error": "Job not found"})
+                break
+                
+            status = job.get("status")
+            # Parse metadata if it's a string (Local Mode) or use as is (Cloud Mode)
+            meta = job.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                try: meta = json.loads(meta)
+                except: meta = {}
+            
+            trace = meta.get("pipeline_trace", [])
+            final_result = meta.get("final_result")
+            
+            # Send full update if something changed
+            if status != last_status or len(trace) != last_trace_len or final_result:
+                payload = {
+                    "status": status,
+                    "pipeline_trace": trace,
+                    "result": final_result
+                }
+                await websocket.send_json(payload)
+                
+                last_status = status
+                last_trace_len = len(trace)
+            
+            if status in ["COMPLETED", "FAILED"]:
+                break
+                
+            await asyncio.sleep(1) # Poll interval
+            
+    except Exception as e:
+        logger.error(f"WS Analyze Error: {e}")
+    finally:
+        try: await websocket.close()
+        except: pass
 
 # Note: get_db is already imported at the top of the file
 
@@ -372,7 +370,11 @@ async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_curr
         except: pass
 
     # 2. Get Response from ChatAgent (Context Aware)
-    response_content = await ChatAgent.chat(request.messages)
+    # Get model from request or fallback
+    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
+    model_name = request.model if request.model else default_model
+    
+    response_content = await ChatAgent.chat(request.messages, model=model_name)
     
     # 3. Persist AI Response
     if db:
@@ -752,7 +754,7 @@ async def deploy_execute(request: ExecuteRequest, current_user: dict = Depends(g
     job_id = f"exec_{str(uuid.uuid4())[:8]}"
     
     # Use JobManager for hybrid storage (metadata in DB, credentials in memory)
-    JobManager.create_job(job_id, "execution", {
+    JobManager.create_job(job_id, "LIVE", {
         "hostname": request.hostname,
         "username": request.username,
         "port": request.port,
@@ -761,7 +763,7 @@ async def deploy_execute(request: ExecuteRequest, current_user: dict = Depends(g
         "password": request.password,
         "passphrase": request.passphrase,
         "script_path": request.script_path,
-        "status": "pending",
+        "status": "PENDING",
         "user_id": user_id  # Store user_id for per-minute billing
     })
     
@@ -790,7 +792,7 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
             await websocket.close()
             return
         
-        JobManager.update_status(job_id, "running")
+        JobManager.update_status(job_id, "RUNNING")
         await websocket.send_text(f"🚀 Starting job: {job_id}")
         
         from services.ssh_manager import SSHManager
@@ -807,12 +809,14 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
         ):
             await websocket.send_text(line)
         
-        JobManager.update_status(job_id, "completed")
-        await websocket.send_text(f"✅ Job {job_id} completed")
+        
+        # Success case - we need to mark as COMPLETED if loop finished without error
+        JobManager.update_status(job_id, "COMPLETED")
+        await websocket.send_text(f"✅ Job {job_id} completed") 
         
     except Exception as e:
         logger.error(f"Execution error: {e}")
-        JobManager.update_status(job_id, "failed")
+        JobManager.update_status(job_id, "FAILED")
         await websocket.send_text(f"❌ Error: {str(e)}")
     finally:
         # Clean up credentials from memory
@@ -918,12 +922,12 @@ async def websocket_execute_project(websocket: WebSocket, job_id: str):
         ):
             await websocket.send_text(line)
         
-        JobManager.update_status(job_id, "completed")
+        JobManager.update_status(job_id, "COMPLETED")
         await websocket.send_text(f"✅ Project job {job_id} completed")
         
     except Exception as e:
         logger.error(f"Project execution error: {e}")
-        JobManager.update_status(job_id, "failed")
+        JobManager.update_status(job_id, "FAILED")
         await websocket.send_text(f"❌ Error: {str(e)}")
     finally:
         # Clean up credentials from memory

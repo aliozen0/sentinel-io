@@ -15,10 +15,11 @@ CREATE TABLE IF NOT EXISTS jobs (
   user_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   status TEXT, -- PENDING, RUNNING, COMPLETED, FAILED
-  mode TEXT, -- SIMULATION, LIVE
+  mode TEXT, -- SIMULATION, LIVE, ANALYSIS
   gpu_target TEXT,
   final_cost DECIMAL(10, 2),
   logs_summary TEXT,
+  metadata TEXT, -- JSON payload for job details
   FOREIGN KEY(user_id) REFERENCES profiles(id)
 );
 

@@ -2,7 +2,7 @@
 
 **io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.2-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.3-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ---
 
@@ -15,12 +15,13 @@ Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemle
 3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
 4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
 
-### 🌟 v1.2 Yükseltmesi (Yeni!)
+### 🌟 v1.3 Yükseltmesi (Yeni!)
 
 Sistem artık çok daha yetenekli ve akıllı:
 
--   **Akıllı Proje Analizi (Auditor v2):** Tek dosya değil, tüm projenizi (ZIP veya çoklu dosya) analiz eder. `main.py` ve `utils.py` arasındaki ilişkileri anlayarak "missing imports" hatalarını çözer.
--   **Generative Planner (Architect LLM):** Statik kurallar yerine, projenize özel Docker ortamını yapay zeka tasarlar. CUDA sürümünü ve sistem paketlerini kodunuzun ihtiyacına göre belirler.
+-   **Oturum Kalıcılığı (Persistence):** Tarayıcıyı kapatsanız bile analiz işlemleriniz arka planda devam eder. Geri döndüğünüzde kaldığınız yerden devam edersiniz.
+-   **Multi-Model Chat:** Sohbet ederken **DeepSeek-V3**, **DeepSeek-R1**, **Llama 3.3**, **Qwen2.5** gibi farklı yapay zeka modelleri arasından seçim yapabilirsiniz.
+-   **Akıllı Veritabanı (Auto-Healing DB):** Sistem, yerel veritabanınızın şemasını otomatik kontrol eder ve eksik tabloları/kolonları (örn: `metadata`) kendini onararak ekler.
 -   **Gelişmiş Wizard:** Canlı Dashboard (VRAM, GPU, Sağlık Skoru), oturum kurtarma ve görsel onay mekanizmaları eklendi.
 -   **Hibrit Mimari (Hybrid Core):** Veritabanı katmanı artık hem **Local (SQLite)** hem de **Cloud (Supabase)** modlarında çalışabilir. İnternet bağlantınız kopsa bile yerel veritabanı ile çalışmaya devam edersiniz.
 

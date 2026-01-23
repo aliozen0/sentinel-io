@@ -1,53 +1,113 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Send, Bot, User } from "lucide-react"
+import { Send, Bot, User, Trash2, AlertCircle } from "lucide-react"
+import {
+    getChatMessages,
+    saveChatMessages,
+    completePendingRequest,
+    hasPendingRequest,
+    sendChatMessage,
+    ChatMessage
+} from "@/lib/chat-service"
 
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const CHAT_STORAGE_KEY = "io-guard-chat-messages"
 
 export default function ChatPage() {
-    const [messages, setMessages] = useState<{ role: string, content: string }[]>([
-        { role: "assistant", content: "Hello! I am io-Guard Intelligence. How can I help you optimize your training today?" }
-    ])
+    const [messages, setMessages] = useState<ChatMessage[]>([])
     const [input, setInput] = useState("")
     const [loading, setLoading] = useState(false)
+    const [pendingCheck, setPendingCheck] = useState(false)
+    const chatEndRef = useRef<HTMLDivElement>(null)
+
+    // Model Selection State
+    const [models, setModels] = useState<any[]>([])
+    const [selectedModel, setSelectedModel] = useState<string>("")
+    const [loadingModels, setLoadingModels] = useState(true)
+
+    // Load messages and check for pending requests on mount
+    useEffect(() => {
+        const loadedMessages = getChatMessages()
+        setMessages(loadedMessages)
+
+        // Check if there's a pending request from before navigation
+        if (hasPendingRequest()) {
+            setLoading(true) // Restore loading state immediately
+            setPendingCheck(true)
+
+            completePendingRequest().then((response) => {
+                if (response) {
+                    // Reload messages which now include the response
+                    setMessages(getChatMessages())
+                }
+                setPendingCheck(false)
+                setLoading(false) // Clear loading state only after completion
+            })
+        }
+    }, [])
+
+    // Fetch models on mount
+    useEffect(() => {
+        const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        fetch(`${NEXT_PUBLIC_API_URL}/v1/models`)
+            .then(res => res.json())
+            .then(data => {
+                setModels(data.models)
+                // Default if not already set (maybe persist later)
+                if (!selectedModel) setSelectedModel(data.default_model)
+                setLoadingModels(false)
+            })
+            .catch(err => {
+                console.error("Failed to fetch models:", err)
+                setLoadingModels(false)
+            })
+    }, [])
+
+    // Save messages to sessionStorage on change
+    useEffect(() => {
+        if (messages.length > 0) {
+            saveChatMessages(messages)
+        }
+    }, [messages])
+
+    // Scroll to bottom on new messages
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, [messages])
+
+    const clearChat = () => {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY)
+        setMessages([{ role: "assistant", content: "Chat temizlendi. Size nasıl yardımcı olabilirim?" }])
+    }
 
     const handleSend = async () => {
         if (!input.trim()) return
 
-        const userMsg = { role: "user", content: input }
-        setMessages(prev => [...prev, userMsg])
+        const userMsg: ChatMessage = { role: "user", content: input }
+        const updatedMessages = [...messages, userMsg]
+        setMessages(updatedMessages)
         setInput("")
         setLoading(true)
 
-        try {
-            // Include history in a real app
-            const token = localStorage.getItem("token")
-            const headers: any = { "Content-Type": "application/json" }
-            if (token) headers["Authorization"] = `Bearer ${token}`
-
-            const res = await fetch(`${NEXT_PUBLIC_API_URL}/v1/chat`, {
-                method: "POST",
-                headers: headers,
-                body: JSON.stringify({ messages: [...messages, userMsg] })
-            })
-
-            if (res.ok) {
-                const data = await res.json()
-                setMessages(prev => [...prev, data]) // Expected: { role: "assistant", content: "..."}
-            } else {
-                setMessages(prev => [...prev, { role: "assistant", content: "Error: Could not reach the Brain." }])
-            }
-        } catch (error) {
-            console.error(error)
-            setMessages(prev => [...prev, { role: "assistant", content: "Error: Connection failure." }])
-        } finally {
-            setLoading(false)
-        }
+        // Use the chat service which handles background requests
+        await sendChatMessage(
+            messages,
+            userMsg,
+            (response) => {
+                setMessages(prev => [...prev, response])
+                setLoading(false)
+            },
+            (error) => {
+                setMessages(prev => [...prev, { role: "assistant", content: `Error: ${error}` }])
+                setLoading(false)
+            },
+            selectedModel // Pass selected model
+        )
     }
+
 
     return (
         <div className="h-full p-8 flex flex-col space-y-4">
@@ -55,12 +115,43 @@ export default function ChatPage() {
 
             <Card className="flex-1 flex flex-col min-h-[500px]">
                 <CardHeader className="border-b">
-                    <CardTitle className="flex items-center text-lg">
-                        <Bot className="mr-2 h-5 w-5 text-purple-500" />
-                        AI Agent
-                        <span className="ml-2 text-xs text-muted-foreground font-normal bg-purple-500/10 px-2 py-1 rounded-full text-purple-500">
-                            DeepSeek-V3
-                        </span>
+                    <CardTitle className="flex items-center justify-between text-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center">
+                                <Bot className="mr-2 h-5 w-5 text-purple-500" />
+                                AI Agent
+                            </div>
+
+                            {/* Model Selector */}
+                            <select
+                                className="h-7 bg-purple-500/10 text-purple-500 border-none rounded-full px-3 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value)}
+                                disabled={loadingModels || loading}
+                            >
+                                {models.length > 0 ? (
+                                    models.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.name}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option>Loading Models...</option>
+                                )}
+                            </select>
+
+                            {messages.length > 1 && (
+                                <span className="ml-2 text-xs text-zinc-500">
+                                    ({messages.length} mesaj)
+                                </span>
+                            )}
+                        </div>
+                        {messages.length > 1 && (
+                            <Button variant="ghost" size="sm" onClick={clearChat} className="text-zinc-400 hover:text-red-400">
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Temizle
+                            </Button>
+                        )}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0">
@@ -72,7 +163,12 @@ export default function ChatPage() {
                                     ? 'bg-primary text-primary-foreground'
                                     : 'bg-muted text-muted-foreground'
                                     }`}>
-                                    {m.role !== 'user' && <Bot className="h-4 w-4 mr-2 mt-0.5 shrink-0" />}
+                                    {m.role !== 'user' && (
+                                        <div className="mr-2 mt-0.5 shrink-0 flex flex-col items-center">
+                                            <Bot className="h-4 w-4" />
+                                            {/* Show model info on message if available/tracked? For now simple*/}
+                                        </div>
+                                    )}
                                     {m.role === 'user' && <User className="h-4 w-4 mr-2 mt-0.5 shrink-0" />}
                                     <div className="whitespace-pre-wrap">{m.content}</div>
                                 </div>
@@ -85,6 +181,7 @@ export default function ChatPage() {
                                 </div>
                             </div>
                         )}
+                        <div ref={chatEndRef} />
                     </div>
 
                     {/* Input Area */}

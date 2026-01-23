@@ -71,7 +71,13 @@ class TerminalManager:
         import io
         pkey = None
         if config.get("privateKey"):
-             pkey = paramiko.RSAKey.from_private_key(io.StringIO(config["privateKey"]), password=config.get("passphrase"))
+             try:
+                # Strip potential whitespace
+                pk_str = config["privateKey"].strip()
+                pkey = paramiko.RSAKey.from_private_key(io.StringIO(pk_str), password=config.get("passphrase"))
+             except Exception:
+                # Fallback or other key types (Ed25519 etc not implemented here yet in TerminalManager)
+                pass
 
         try:
             client = paramiko.SSHClient()
@@ -82,7 +88,9 @@ class TerminalManager:
                 username=config["username"],
                 password=config.get("password"),
                 pkey=pkey,
-                timeout=5
+                timeout=5,
+                look_for_keys=False,
+                allow_agent=False
             )
             channel = client.invoke_shell()
             channel.setblocking(0)
