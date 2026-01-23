@@ -27,6 +27,8 @@ from agents.auditor import Auditor, AuditReport
 from agents.sniper import Sniper, GPUNode
 from agents.architect import Architect, EnvironmentConfig
 from agents.executor import Executor
+from services.memory_core import MemoryCore
+from agents.chat_ops import OpsAgent
 
 # New Agents
 from agents.auditor import Auditor, AuditReport
@@ -253,6 +255,7 @@ async def analyze_code(request: AnalyzeRequest, current_user: dict = Depends(get
          raise HTTPException(status_code=500, detail="Failed to initialize analysis job")
 
     # Start Background Task
+    print(f"DEBUG: Spawning run_analysis_bg for {job_id}")
     asyncio.create_task(run_analysis_bg(
         job_id=job_id,
         code=request.code,
@@ -1038,19 +1041,26 @@ async def dashboard_stats(current_user: dict = Depends(get_current_user)):
     recent_logs = state.get_agent_logs(limit=20)
     error_count = sum(1 for log in recent_logs if "error" in str(log).lower() or "warning" in str(log).lower())
 
+    # 5. Knowledge Stats (RAG)
+    user_id = current_user.get("id") or current_user.get("sub")
+    knowledge_stats = await MemoryCore.get_stats(user_id=user_id)
+
     return {
         "active_agents": active_agents,
         "market_nodes": node_count,
-        "market_sample": market_data[:20], # Top 20 for snapshot
-        "system_health": 100 if error_count == 0 else 90, # Simple logic
+        "market_sample": market_data[:50] if market_data else [],
+        "system_health": 100 - (error_count * 5) if error_count < 20 else 0, # Simple health metric
         "alerts_count": error_count,
         "financials": {
-            "balance": real_balance,
-            "currency": "USDC",
-            "hourly_burn": est_hourly_burn,
-            "rewards_24h": 0.0 # Placeholder/Future implementation
-        }
+          "balance": real_balance,
+          "currency": "USD",
+          "hourly_burn": est_hourly_burn,
+          "rewards_24h": 0.0 # Placeholder
+        },
+        "knowledge_stats": knowledge_stats,
+        "agent_logs": recent_logs
     }
+
 
 
 # ==========================================

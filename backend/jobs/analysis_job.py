@@ -16,33 +16,37 @@ async def run_analysis_bg(job_id: str, code: str, user_id: str, budget: float, m
     Background task to run the full analysis pipeline.
     Updates job status and metadata in DB at each step.
     """
-    db = get_db()
-    
-    # Initial Update
-    pipeline_trace = []
-    
-    def update_job_progress(status: str, result: Optional[Dict] = None, trace: Optional[list] = None):
-        """Helper to update job in DB"""
-        # We store the full result/trace in metadata or a specific column if available
-        # Ideally, we should have a 'result' column or use metadata
-        # For now, we'll fetch existing metadata, update it, and save back
-        try:
-            # Note: This is inefficient (read-modify-write), but compatible with current simplified DB client
-            # In a real app, we'd use JSONB updates or separate tables for logs
-            # Here we assume we can just overwrite metadata with the result included
-            job = db.get_job(job_id) # Need to implement get_job if not exists, or just use update
-            existing_meta = job.get("metadata", {}) if job else {}
-            
-            new_meta = {
-                **existing_meta,
-                "pipeline_trace": trace if trace else existing_meta.get("pipeline_trace", []),
-                "final_result": result if result else existing_meta.get("final_result")
-            }
-            db.update_job(job_id, status=status, metadata=new_meta)
-        except Exception as e:
-            logger.error(f"Failed to update job {job_id}: {e}")
-
+    print(f"DEBUG: run_analysis_bg CALLED for {job_id}", flush=True)
     try:
+        db = get_db()
+        
+        # Initial Update
+        pipeline_trace = []
+        
+        def update_job_progress(status: str, result: Optional[Dict] = None, trace: Optional[list] = None):
+            """Helper to update job in DB"""
+            try:
+                # job = db.get_job(job_id) # Optimization: Update blindly or assume exists (it was created in main)
+                # existing_meta = job.get("metadata", {}) if job else {}
+                
+                # We need to fetch current metadata to preserve other fields?
+                # For simplicity/speed in MVP, we might overwrite specific fields or merge.
+                # Here we assume we can just merge into what we have in memory (pipeline_trace)
+                # But better to fetch to be safe in case of race? background task is single writer usually.
+                
+                # Fetching latest state
+                job = db.get_job(job_id)
+                existing_meta = job.get("metadata", {}) if job else {}
+
+                new_meta = {
+                    **existing_meta,
+                    "pipeline_trace": trace if trace else existing_meta.get("pipeline_trace", []),
+                    "final_result": result if result else existing_meta.get("final_result")
+                }
+                db.update_job(job_id, status=status, metadata=new_meta)
+            except Exception as e:
+                logger.error(f"Failed to update job {job_id}: {e}")
+
         logger.info(f"🚀 Starting Analysis Job {job_id} for user {user_id}")
         update_job_progress("RUNNING", trace=pipeline_trace)
         
@@ -152,17 +156,40 @@ async def run_analysis_bg(job_id: str, code: str, user_id: str, budget: float, m
             },
             "audit": audit_report.dict(),
             "environment": env_config.dict(),
-            "market_nodes": market_nodes,
+            "market_recommendations": market_nodes, # FIXED: Renamed from market_nodes to match frontend
             "pipeline_trace": pipeline_trace
         }
 
         update_job_progress("COMPLETED", result=final_result, trace=pipeline_trace)
         logger.info(f"✅ Job {job_id} Completed Successfully")
+        print(f"DEBUG: Job {job_id} DONE", flush=True)
 
     except Exception as e:
         logger.error(f"❌ Job {job_id} Failed: {e}")
-        # Update DB with error
+        print(f"DEBUG: Job {job_id} FAILED: {e}", flush=True)
+        # Check if pipeline_trace is defined (in case error happened before init)
+        if 'pipeline_trace' not in locals(): pipeline_trace = []
+        
         pipeline_trace.append({
             "step": 99, "agent": "System", "status": "failed", "action": f"Error: {str(e)}"
         })
-        update_job_progress("FAILED", trace=pipeline_trace)
+        try:
+            # Try to update DB even if failed
+            # Try to update DB even if failed
+            if 'db' not in locals(): 
+                # Fallback if db wasn't initialized, try to get it using global import
+                try:
+                    db = get_db()
+                except:
+                   pass
+            
+            if 'db' in locals() and db:
+                job = db.get_job(job_id)
+            existing_meta = job.get("metadata", {}) if job else {}
+            new_meta = {
+                **existing_meta,
+                "pipeline_trace": pipeline_trace
+            }
+            db.update_job(job_id, status="FAILED", metadata=new_meta)
+        except:
+             pass

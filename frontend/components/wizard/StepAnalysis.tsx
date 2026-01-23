@@ -250,10 +250,96 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
         if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files)
     }
 
+    const [jobId, setJobId] = useState<string | null>(null)
+    const [pipelineTrace, setPipelineTrace] = useState<any[]>([])
+
+    // WebSocket Effect
+    useEffect(() => {
+        if (!jobId) return
+
+        // Construct WS URL (handle http/https -> ws/wss)
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsBase = NEXT_PUBLIC_API_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+        const wsUrl = `${wsBase}/ws/analyze/${jobId}`
+
+        console.log("Connecting to WS:", wsUrl)
+
+        const ws = new WebSocket(wsUrl)
+
+        ws.onopen = () => {
+            console.log("WS Connected")
+        }
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                // console.log("WS Message:", data)
+
+                if (data.error) {
+                    console.error("WS Error:", data.error)
+                    // You might want to handle this UI wise
+                    return
+                }
+
+                // Update result state with new data
+                // Backend sends: { status, pipeline_trace, result } where result is the final report
+
+                if (data.pipeline_trace) {
+                    // Update trace state directly
+                    const traceData = Array.isArray(data.pipeline_trace) ? data.pipeline_trace : (data.pipeline_trace.steps || [])
+                    setPipelineTrace(traceData)
+                }
+
+                setResult((prev: any) => {
+                    const newResult = {
+                        ...prev,
+                        status: data.status,
+                        // Keep result if present (final report)
+                        ...(data.result || {})
+                    }
+                    return newResult
+                })
+
+                if (data.status === "COMPLETED") {
+                    setLoading(false)
+                    ws.close()
+                    setJobId(null)
+
+                    // Force complete all steps
+                    setPipelineTrace(prev => prev.map(s => ({ ...s, status: 'completed' })))
+                } else if (data.status === "FAILED") {
+                    setLoading(false)
+                    ws.close()
+                    setJobId(null)
+                    alert("Analiz başarısız oldu. Lütfen tekrar deneyin.")
+                }
+
+            } catch (e) {
+                console.error("WS Message Error:", e)
+            }
+        }
+
+        ws.onerror = (e) => {
+            console.error("WS Error:", e)
+            // Don't stop loading immediately, maybe it reconnects or just temporary
+        }
+
+        ws.onclose = () => {
+            console.log("WS Closed")
+        }
+
+        return () => {
+            ws.close()
+        }
+    }, [jobId])
+
     const handleAnalyze = async () => {
         if (!code.trim()) return
         setLoading(true)
         setResult(null)
+        setJobId(null)
+        setPipelineTrace([])
+
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -270,13 +356,29 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
             })
             if (res.ok) {
                 const data = await res.json()
-                setResult(data)
-                setShowAuditDetails(true)
-                setShowEnvDetails(true)
+                // data = { job_id: "...", status: "PENDING" }
+                // Start WS connection
+                if (data.job_id) {
+                    setJobId(data.job_id)
+                    // The WS will handle result updates
+                    // Initial result state
+                    setResult({
+                        pipeline_trace: { steps: [] },
+                        status: "PENDING"
+                    })
+                    setShowAuditDetails(true)
+                    setShowEnvDetails(true)
+                } else {
+                    // Fallback check if it returned result immediately (unlikely in v1)
+                    setResult(data)
+                    setLoading(false)
+                }
+            } else {
+                setLoading(false)
+                alert("Analiz başlatılamadı.")
             }
         } catch (error) {
             console.error(error)
-        } finally {
             setLoading(false)
         }
     }
@@ -313,8 +415,9 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-                {/* Left: Input */}
+                {/* Left: Input & Pipeline */}
                 <div className="flex flex-col gap-4 h-full">
+                    {/* Code Input Card */}
                     <Card className="flex-1 flex flex-col bg-zinc-900/50 border-zinc-800">
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-base">
@@ -349,7 +452,7 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                                 </div>
                             ) : (
                                 <div className="flex-1 flex flex-col gap-2 min-h-0">
-                                    {/* File Details Toggle */}
+                                    {/* File Details Toggle ... (Keeping same) */}
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => setShowFileDetails(!showFileDetails)}
@@ -440,15 +543,40 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Pipeline (Moved to Left Column, below code) */}
+                    {(loading || pipelineTrace.length > 0) && (
+                        <Card className="bg-zinc-900/50 border-zinc-800 animate-in fade-in slide-in-from-top-2">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-sm">
+                                    <Activity className="w-4 h-4 text-blue-400" />
+                                    Analiz Pipeline
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {pipelineTrace.length === 0 ? (
+                                    <>
+                                        <PipelineStep step={{ agent: "Auditor", status: "running", action: "Kod analiz ediliyor..." }} isActive={true} />
+                                        <PipelineStep step={{ agent: "Architect", status: "pending", action: "Bekliyor..." }} isActive={false} />
+                                        <PipelineStep step={{ agent: "Sniper", status: "pending", action: "Bekliyor..." }} isActive={false} />
+                                    </>
+                                ) : (
+                                    pipelineTrace.map((step: any, i: number) => (
+                                        <PipelineStep key={i} step={step} isActive={step.status === 'running'} />
+                                    ))
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
-                {/* Right: Results */}
+                {/* Right: Results (Only show when COMPLETED) */}
                 <div className="flex flex-col gap-4 h-full overflow-y-auto">
-                    {loading || result ? (
+                    {!loading && result?.status === "COMPLETED" ? (
                         <>
                             {/* Stats Dashboard */}
                             {result?.audit && (
-                                <div className="grid grid-cols-5 gap-2 mb-4">
+                                <div className="grid grid-cols-5 gap-2 mb-4 animate-in fade-in zoom-in-95 duration-300">
                                     <div className="bg-zinc-950/50 border border-zinc-800 p-3 rounded-lg text-center">
                                         <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Framework</div>
                                         <div className="text-blue-400 font-bold text-sm" title={result.audit.framework}>{result.audit.framework || "Unknown"}</div>
@@ -478,35 +606,10 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                                 </div>
                             )}
 
-                            {/* Pipeline */}
-                            <Card className="bg-zinc-900/50 border-zinc-800">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center gap-2 text-sm">
-                                        <Activity className="w-4 h-4 text-blue-400" />
-                                        Analiz Pipeline
-                                        {result?.pipeline_trace && (
-                                            <span className="ml-auto text-xs text-zinc-500">Toplam: {result.pipeline_trace.total_duration_sec}s</span>
-                                        )}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                    {loading && !result ? (
-                                        <>
-                                            <PipelineStep step={{ agent: "Auditor", status: "running", action: "Kod analiz ediliyor..." }} isActive={true} />
-                                            <PipelineStep step={{ agent: "Architect", status: "pending", action: "Bekliyor..." }} isActive={false} />
-                                            <PipelineStep step={{ agent: "Sniper", status: "pending", action: "Bekliyor..." }} isActive={false} />
-                                        </>
-                                    ) : result?.pipeline_trace?.steps ? (
-                                        result.pipeline_trace.steps.map((step: any, i: number) => (
-                                            <PipelineStep key={i} step={step} isActive={false} />
-                                        ))
-                                    ) : null}
-                                </CardContent>
-                            </Card>
-
                             {/* Audit Results */}
                             {result?.audit && (
-                                <Card className="bg-zinc-900/50 border-zinc-800">
+                                <Card className="bg-zinc-900/50 border-zinc-800 animate-in slide-in-from-right-4 duration-500">
+
                                     <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowAuditDetails(!showAuditDetails)}>
                                         <CardTitle className="flex items-center gap-2 text-sm">
                                             <Brain className="w-4 h-4 text-yellow-400" />

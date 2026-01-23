@@ -18,6 +18,12 @@ interface DashboardStats {
   system_health: number
   alerts_count: number
   financials: Financials
+  knowledge_stats?: {
+    document_count: number
+    mode: string
+    storage: string
+  }
+  agent_logs?: any[]
 }
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -225,10 +231,29 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              <div className="p-4 rounded-lg bg-zinc-950 border border-zinc-800">
+              <div className="p-4 rounded-lg bg-zinc-950 border border-zinc-800 max-h-[300px] overflow-y-auto custom-scrollbar">
                 <p className="text-xs font-mono text-zinc-500 mb-2">LATEST BROADCAST</p>
-                <p className="text-sm text-zinc-300 italic">"Security sweep completed. 4 Agent nodes active and monitoring network traffic."</p>
-                <p className="text-[10px] text-zinc-600 mt-2 text-right">- Watchdog Agent, 2m ago</p>
+
+                {stats?.agent_logs && stats.agent_logs.length > 0 ? (
+                  stats.agent_logs.slice(0, 5).map((log, idx) => (
+                    <div key={idx} className="mb-3 border-b border-zinc-900 pb-2 last:border-0 last:pb-0">
+                      <p className="text-sm text-zinc-300">"{log.message || log.action}"</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className={`text-[10px] uppercase font-bold ${log.agent === 'Sniper' ? 'text-blue-400' :
+                            log.agent === 'OpsAgent' ? 'text-purple-400' :
+                              log.agent === 'Auditor' ? 'text-yellow-400' :
+                                'text-zinc-500'
+                          }`}>- {log.agent}</span>
+                        <span className="text-[10px] text-zinc-600">{new Date(log.timestamp * 1000).toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <p className="text-sm text-zinc-300 italic">"Security sweep completed. 4 Agent nodes active and monitoring network traffic."</p>
+                    <p className="text-[10px] text-zinc-600 mt-2 text-right">- Watchdog Agent, 2m ago</p>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>

@@ -338,7 +338,6 @@ class MemoryCore:
             return {"success": False, "error": str(e)}
     
     @staticmethod
-    @staticmethod
     async def get_stats(user_id: str = None) -> Dict[str, Any]:
         """Vektör veritabanı istatistiklerini döndür."""
         try:
