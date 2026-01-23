@@ -133,28 +133,34 @@ export default function StepExecution({ deploymentConfig, selectedGpu, onBack, o
     const handleExecutionComplete = (jobId: string) => {
         setRunning(false)
         costTracker.stopTracking()
-        setExecutionCompleted(true)
 
-        const endTime = new Date()
-        const durationSeconds = startTimeRef.current
-            ? Math.floor((endTime.getTime() - startTimeRef.current.getTime()) / 1000)
-            : costTracker.elapsedSeconds
+        // Use setTimeout to ensure state has settled before creating report
+        setTimeout(() => {
+            const endTime = new Date()
+            const durationSeconds = startTimeRef.current
+                ? Math.floor((endTime.getTime() - startTimeRef.current.getTime()) / 1000)
+                : costTracker.elapsedSeconds
 
-        // Create report
-        const executionReport: ExecutionReportType = {
-            jobId,
-            gpu: selectedGpu?.gpu_model || 'Unknown GPU',
-            startTime: startTimeRef.current?.toISOString() || new Date().toISOString(),
-            endTime: endTime.toISOString(),
-            durationSeconds,
-            totalCost: costTracker.currentCost,
-            exitCode: 0, // Would come from backend in real implementation
-            logsCount: logs.length,
-            status: 'success'
-        }
-        setReport(executionReport)
+            // Calculate cost based on actual elapsed time
+            const finalCost = (durationSeconds / 3600) * pricePerHour
 
-        setLogs(prev => [...prev, "", "═".repeat(60), "✨ Çalıştırma tamamlandı!", "═".repeat(60)])
+            // Create report with current values
+            const executionReport: ExecutionReportType = {
+                jobId,
+                gpu: selectedGpu?.gpu_model || 'Unknown GPU',
+                startTime: startTimeRef.current?.toISOString() || new Date().toISOString(),
+                endTime: endTime.toISOString(),
+                durationSeconds,
+                totalCost: finalCost > 0 ? finalCost : costTracker.currentCost,
+                exitCode: 0,
+                logsCount: 0, // Will be set from actual logs in ExecutionReport
+                status: 'success'
+            }
+
+            setReport(executionReport)
+            setExecutionCompleted(true)
+            setLogs(prev => [...prev, "", "═".repeat(60), "✨ Çalıştırma tamamlandı!", "═".repeat(60)])
+        }, 100)
     }
 
     const handleRerun = () => {

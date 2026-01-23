@@ -131,6 +131,173 @@ class DatabaseClient:
             )
             self.conn.commit()
 
+    # --- Job Management Methods (Persistent Storage) ---
+
+    def create_job(self, job_id: str, job_type: str, status: str, metadata: Dict) -> bool:
+        """
+        Creates a new job record. Stores only safe metadata (no credentials).
+        """
+        # Filter out sensitive data before storing
+        safe_metadata = {k: v for k, v in metadata.items() 
+                         if k not in ('private_key', 'password', 'passphrase')}
+        
+        if self.mode == "CLOUD":
+            try:
+                self.supabase.table("jobs").insert({
+                    "id": job_id,
+                    "status": status,
+                    "mode": job_type,
+                    "logs_summary": str(safe_metadata)
+                }).execute()
+                return True
+            except Exception as e:
+                logger.error(f"Create Job Error (Cloud): {e}")
+                return False
+        else:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "INSERT INTO jobs (id, status, mode, logs_summary) VALUES (?, ?, ?, ?)",
+                    (job_id, status, job_type, str(safe_metadata))
+                )
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Create Job Error (Local): {e}")
+                return False
+
+    def update_job_status(self, job_id: str, status: str, logs_summary: str = None) -> bool:
+        """Updates job status and optionally appends to logs."""
+        if self.mode == "CLOUD":
+            try:
+                update_data = {"status": status}
+                if logs_summary:
+                    update_data["logs_summary"] = logs_summary
+                self.supabase.table("jobs").update(update_data).eq("id", job_id).execute()
+                return True
+            except Exception as e:
+                logger.error(f"Update Job Error (Cloud): {e}")
+                return False
+        else:
+            try:
+                cursor = self.conn.cursor()
+                if logs_summary:
+                    cursor.execute(
+                        "UPDATE jobs SET status = ?, logs_summary = ? WHERE id = ?",
+                        (status, logs_summary, job_id)
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE jobs SET status = ? WHERE id = ?",
+                        (status, job_id)
+                    )
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Update Job Error (Local): {e}")
+                return False
+
+    def get_job(self, job_id: str) -> Optional[Dict]:
+        """Retrieves a job by ID."""
+        if self.mode == "CLOUD":
+            try:
+                res = self.supabase.table("jobs").select("*").eq("id", job_id).execute()
+                return res.data[0] if res.data else None
+            except Exception as e:
+                logger.error(f"Get Job Error (Cloud): {e}")
+                return None
+        else:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    # --- Credit Management Methods ---
+
+    def get_credits(self, user_id: str) -> float:
+        """Get user's current credit balance."""
+        if self.mode == "CLOUD":
+            try:
+                res = self.supabase.table("profiles").select("credits").eq("id", user_id).execute()
+                if res.data:
+                    return float(res.data[0].get("credits", 0.0))
+            except Exception as e:
+                logger.error(f"Get Credits Error (Cloud): {e}")
+            return 0.0
+        else:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT credits FROM profiles WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+            return float(row["credits"]) if row else 0.0
+
+    def deduct_credits(self, user_id: str, amount: float, reason: str = "") -> bool:
+        """
+        Deducts credits from user account.
+        Returns False if insufficient credits.
+        """
+        current_credits = self.get_credits(user_id)
+        
+        if current_credits < amount:
+            logger.warning(f"Insufficient credits: {user_id} has {current_credits}, needs {amount}")
+            return False
+        
+        new_balance = current_credits - amount
+        
+        if self.mode == "CLOUD":
+            try:
+                self.supabase.table("profiles").update({
+                    "credits": new_balance
+                }).eq("id", user_id).execute()
+                logger.info(f"💳 Credit deducted: {user_id} -{amount} ({reason}). New balance: {new_balance}")
+                return True
+            except Exception as e:
+                logger.error(f"Deduct Credits Error (Cloud): {e}")
+                return False
+        else:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "UPDATE profiles SET credits = ? WHERE id = ?",
+                    (new_balance, user_id)
+                )
+                self.conn.commit()
+                logger.info(f"💳 Credit deducted: {user_id} -{amount} ({reason}). New balance: {new_balance}")
+                return True
+            except Exception as e:
+                logger.error(f"Deduct Credits Error (Local): {e}")
+                return False
+
+    def add_credits(self, user_id: str, amount: float, reason: str = "") -> bool:
+        """Adds credits to user account."""
+        current_credits = self.get_credits(user_id)
+        new_balance = current_credits + amount
+        
+        if self.mode == "CLOUD":
+            try:
+                self.supabase.table("profiles").update({
+                    "credits": new_balance
+                }).eq("id", user_id).execute()
+                logger.info(f"💰 Credit added: {user_id} +{amount} ({reason}). New balance: {new_balance}")
+                return True
+            except Exception as e:
+                logger.error(f"Add Credits Error (Cloud): {e}")
+                return False
+        else:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "UPDATE profiles SET credits = ? WHERE id = ?",
+                    (new_balance, user_id)
+                )
+                self.conn.commit()
+                logger.info(f"💰 Credit added: {user_id} +{amount} ({reason}). New balance: {new_balance}")
+                return True
+            except Exception as e:
+                logger.error(f"Add Credits Error (Local): {e}")
+                return False
+
 # Helper for Dependency Injection
 def get_db():
     return DatabaseClient()
+
+

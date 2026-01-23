@@ -1,85 +1,167 @@
-from agents.base import BaseAgent
-from agents.implementations import (
-    WatchdogAgent, DiagnosticianAgent, AccountantAgent, EnforcerAgent,
-    CodeParserAgent, VRAMCalculatorAgent, OptimizationAdvisorAgent
-)
-from agents.oracle import OracleAgent
-from models import AnalysisContext, TelemetryData, VramAnalysisContext
-from state_manager import state
-import uuid
+"""
+io-Guard v1.0 Agent Orchestrator
+
+Unified pipeline for code analysis workflow:
+Auditor (LLM Analysis) -> Architect (Environment Planning) -> Sniper (Market Arbitrage)
+"""
+
+import time
 import logging
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel
+
+from state_manager import state
+from agents.auditor import Auditor, AuditReport
+from agents.architect import Architect, EnvironmentConfig
+from agents.sniper import Sniper, GPUNode
 
 logger = logging.getLogger("Orchestrator")
 
+
+class AnalysisResult(BaseModel):
+    """Complete result from the analysis pipeline."""
+    audit: Dict[str, Any]
+    environment: Dict[str, Any]
+    market_recommendations: List[Dict[str, Any]]
+    summary: Dict[str, str]
+    pipeline_trace: Dict[str, Any]
+
+
 class AgentOrchestrator:
     """
-    Service to assemble and execute the agent pipeline (Chain of Responsibility).
+    v1.0 Code Analysis Orchestrator
+    
+    Orchestrates the agent pipeline:
+    1. Auditor - LLM-powered code analysis
+    2. Architect - Environment and dependency planning  
+    3. Sniper - Market price optimization
     """
-    def __init__(self):
-        # Initialize Agents
-        # v2.0 FinOps Pipeline
-        self.pipeline: list[BaseAgent] = [
-            WatchdogAgent("watchdog"),
-            OracleAgent("oracle"), # The Seer comes after Watchdog (triggers on anomalies)
-            DiagnosticianAgent("diagnostician"),
-            AccountantAgent("accountant"),
-            EnforcerAgent("enforcer")
-        ]
-        
-        # v3.0 VRAM Oracle Pipeline
-        self.vram_pipeline: list[BaseAgent] = [
-            CodeParserAgent("code_parser"),
-            VRAMCalculatorAgent("vram_calculator"),
-            OptimizationAdvisorAgent("optimization_advisor")
-        ]
-
-    async def run_scan(self) -> AnalysisContext:
+    
+    async def run_analysis(
+        self, 
+        code: str, 
+        budget: float = 10.0,
+        model: Optional[str] = None
+    ) -> AnalysisResult:
         """
-        Runs the full agentic workflow.
-        """
-        # 1. Create Context from Current State
-        workers = state.get_all_workers()
-        snapshot = {}
-        for wid, wdata in workers.items():
-            if wdata['status'] == 'Active':
-                data = wdata['data']
-                snapshot[wid] = TelemetryData(
-                    worker_id=wid,
-                    latency=data.get('latency', 0),
-                    temperature=data.get('temperature', 0),
-                    gpu_util=data.get('gpu_util', 0),
-                    fan_speed=data.get('fan_speed', 0),
-                    clock_speed=data.get('clock_speed', 100)
-                )
-
-        ctx = AnalysisContext(
-            session_id=str(uuid.uuid4()),
-            telemetry_snapshot=snapshot
-        )
-
-        # 2. Execute Pipeline
-        logger.info(f"Starting Agentic Scan Session: {ctx.session_id}")
+        Executes the full v1.0 analysis pipeline.
         
-        for agent in self.pipeline:
-            # Pass the context through each agent
-            ctx = await agent.execute(ctx)
+        Args:
+            code: Python code to analyze
+            budget: Hourly budget for GPU rental
+            model: Optional LLM model override
             
-        logger.info("Scan complete.")
-        return ctx
-
-    async def run_vram_analysis(self, code_snippet: str) -> VramAnalysisContext:
+        Returns:
+            AnalysisResult with audit, environment, and market data
         """
-        Executes the v3.0 VRAM Oracle Pipeline.
-        """
-        session_id = str(uuid.uuid4())
-        ctx = VramAnalysisContext(
-            session_id=session_id,
-            code_snippet=code_snippet
+        import os
+        
+        api_base = os.getenv("IO_BASE_URL", "api.intelligence.io.solutions")
+        pipeline_trace = []
+        
+        # === STEP 1: Auditor (LLM Analysis) ===
+        step1_start = time.time()
+        pipeline_trace.append({
+            "step": 1,
+            "agent": "Auditor",
+            "status": "running",
+            "action": "Sending code to LLM for analysis...",
+            "details": {
+                "model": model or os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2"),
+                "api": api_base.replace("https://", "").replace("/api/v1/", ""),
+                "code_length": len(code)
+            }
+        })
+        
+        audit_report = await Auditor.analyze_code(code, model=model)
+        step1_time = round(time.time() - step1_start, 2)
+        
+        pipeline_trace[0]["status"] = "completed"
+        pipeline_trace[0]["duration_sec"] = step1_time
+        pipeline_trace[0]["result"] = {
+            "framework": audit_report.framework,
+            "vram": f"{audit_report.vram_min_gb} GB",
+            "health_score": audit_report.health_score,
+            "issues_found": len(audit_report.critical_issues)
+        }
+        
+        # === STEP 2: Architect (Environment Planning) ===
+        step2_start = time.time()
+        pipeline_trace.append({
+            "step": 2,
+            "agent": "Architect",
+            "status": "running",
+            "action": "Analyzing imports and planning environment...",
+            "details": {
+                "framework": audit_report.framework,
+                "vram_required": audit_report.vram_min_gb
+            }
+        })
+        
+        env_config = await Architect.plan_environment(
+            framework=audit_report.framework,
+            code=code,
+            vram_gb=audit_report.vram_min_gb
+        )
+        step2_time = round(time.time() - step2_start, 2)
+        
+        pipeline_trace[1]["status"] = "completed"
+        pipeline_trace[1]["duration_sec"] = step2_time
+        pipeline_trace[1]["result"] = {
+            "base_image": env_config.base_image,
+            "packages_detected": len(env_config.python_packages),
+            "cuda_version": env_config.cuda_version
+        }
+        
+        # === STEP 3: Sniper (Market Analysis) ===
+        step3_start = time.time()
+        gpu_model = "RTX 4090" if audit_report.vram_min_gb > 20 else "RTX 3090"
+        
+        pipeline_trace.append({
+            "step": 3,
+            "agent": "Sniper",
+            "status": "running",
+            "action": "Fetching live GPU prices from io.net...",
+            "details": {
+                "api": "api.io.solutions/v1/io-explorer/network/market-snapshot",
+                "target_gpu": gpu_model,
+                "budget": f"${budget}/hr"
+            }
+        })
+        
+        best_nodes = await Sniper.get_best_nodes(
+            budget_hourly=budget, 
+            gpu_model=gpu_model
+        )
+        step3_time = round(time.time() - step3_start, 2)
+        
+        pipeline_trace[2]["status"] = "completed"
+        pipeline_trace[2]["duration_sec"] = step3_time
+        pipeline_trace[2]["result"] = {
+            "nodes_found": len(best_nodes),
+            "best_price": f"${best_nodes[0].price_hourly}/hr" if best_nodes else "N/A"
+        }
+        
+        total_time = round(step1_time + step2_time + step3_time, 2)
+        
+        result = AnalysisResult(
+            audit=audit_report.dict(),
+            environment=env_config.dict(),
+            market_recommendations=[node.dict() for node in best_nodes],
+            summary={
+                "framework": audit_report.framework,
+                "vram_required": f"{audit_report.vram_min_gb} GB",
+                "recommended_gpu": gpu_model,
+                "estimated_setup": f"{env_config.estimated_setup_time_min} min",
+                "health_score": str(audit_report.health_score)
+            },
+            pipeline_trace={
+                "total_duration_sec": total_time,
+                "steps": pipeline_trace
+            }
         )
         
-        logger.info(f"Starting VRAM Analysis Session: {session_id}")
+        # Store in state for Chat Agent context
+        state.last_analysis = result.dict()
         
-        for agent in self.vram_pipeline:
-            ctx = await agent.execute(ctx)
-            
-        return ctx
+        return result

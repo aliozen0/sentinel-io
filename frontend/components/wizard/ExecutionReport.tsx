@@ -53,8 +53,8 @@ export default function ExecutionReport({ report, logs, onRerun, onNewJob }: Exe
         <div className="space-y-4">
             {/* Status Banner */}
             <div className={`rounded-lg p-4 border ${isSuccess
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                    : 'bg-red-500/10 border-red-500/30'
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-red-500/10 border-red-500/30'
                 }`}>
                 <div className="flex items-center gap-3">
                     {isSuccess
@@ -135,7 +135,7 @@ export default function ExecutionReport({ report, logs, onRerun, onNewJob }: Exe
                     <CardTitle className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                             <Terminal className="w-4 h-4 text-zinc-400" />
-                            <span>Loglar ({report.logsCount} satır)</span>
+                            <span>Loglar ({logs.length} satır)</span>
                         </div>
                         {showLogs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </CardTitle>
@@ -148,8 +148,8 @@ export default function ExecutionReport({ report, logs, onRerun, onNewJob }: Exe
                             ) : (
                                 logs.map((log, i) => (
                                     <div key={i} className={`${log.startsWith('❌') ? 'text-red-400' :
-                                            log.startsWith('✅') || log.startsWith('✨') ? 'text-emerald-400' :
-                                                'text-zinc-300'
+                                        log.startsWith('✅') || log.startsWith('✨') ? 'text-emerald-400' :
+                                            'text-zinc-300'
                                         }`}>
                                         {log}
                                     </div>

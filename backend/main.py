@@ -16,29 +16,93 @@ from db.client import get_db
 from fastapi import Depends, Security
 
 
-# --- io-Guard v1.0 Core Imports ---
-try:
+# --- io-Guard v1.0 Core Imports (FAIL-FAST: Missing modules crash at startup) ---
+from state_manager import state
+from services.orchestrator import AgentOrchestrator
 
-    from state_manager import state
-    from services.orchestrator import AgentOrchestrator
+from logger import get_logger, LOG_FILE
 
-    from logger import get_logger, LOG_FILE
-    
-    # New Agents
-    from agents.auditor import Auditor, AuditReport
-    from agents.sniper import Sniper, GPUNode
-    from agents.architect import Architect, EnvironmentConfig
-    from agents.executor import Executor
-    
-    # Demo Routes
-    from routes import demo
-except ImportError:
-    # Fallback for local dev if paths are tricky
-    pass
+# New Agents
+from agents.auditor import Auditor, AuditReport
+from agents.sniper import Sniper, GPUNode
+from agents.architect import Architect, EnvironmentConfig
+from agents.executor import Executor
+
+# Demo Routes
+from routes import demo
+
 
 logger = logging.getLogger("io-guard-core") # Updated logger name for v1.0
 
-app = FastAPI(title="io-Guard Core (v1.0 + Legacy v2.0)")
+# ==========================================
+# 🔐 HYBRID JOB MANAGER (Persistent + In-Memory)
+# ==========================================
+
+class JobManager:
+    """
+    Manages job state with hybrid storage:
+    - Persistent DB: Job metadata (id, status, type, timestamps)
+    - In-Memory: Sensitive credentials (keys, passwords) - TTL limited
+    
+    Credentials are stored in memory ONLY for the duration of the request,
+    and cleared after job completion or timeout.
+    """
+    _credentials_cache: dict = {}  # {job_id: {credentials...}}
+    
+    @classmethod
+    def create_job(cls, job_id: str, job_type: str, config: dict) -> bool:
+        """Create job: store metadata in DB, credentials in memory."""
+        db = get_db()
+        
+        # Store non-sensitive metadata in DB
+        metadata = {
+            "hostname": config.get("hostname"),
+            "username": config.get("username"),
+            "port": config.get("port"),
+            "auth_type": config.get("auth_type"),
+            "script_path": config.get("script_path"),
+            "project_dir": config.get("project_dir"),
+            "entry_point": config.get("entry_point"),
+            "install_requirements": config.get("install_requirements"),
+            "type": config.get("type")
+        }
+        db.create_job(job_id, job_type, "pending", metadata)
+        
+        # Store credentials in memory (NEVER persisted)
+        cls._credentials_cache[job_id] = {
+            "private_key": config.get("private_key"),
+            "password": config.get("password"),
+            "passphrase": config.get("passphrase"),
+            # Also cache full config for websocket handler
+            **config
+        }
+        
+        return True
+    
+    @classmethod
+    def get_job_config(cls, job_id: str) -> Optional[dict]:
+        """Get full job config (merged from DB + memory cache)."""
+        if job_id in cls._credentials_cache:
+            return cls._credentials_cache[job_id]
+        return None
+    
+    @classmethod
+    def update_status(cls, job_id: str, status: str):
+        """Update job status in DB."""
+        db = get_db()
+        db.update_job_status(job_id, status)
+        
+        # Update in-memory cache too
+        if job_id in cls._credentials_cache:
+            cls._credentials_cache[job_id]["status"] = status
+    
+    @classmethod
+    def cleanup_job(cls, job_id: str):
+        """Remove credentials from memory after job completes."""
+        cls._credentials_cache.pop(job_id, None)
+
+
+app = FastAPI(title="io-Guard Core (v1.0)")
 
 # Singleton Orchestrator
 orchestrator = AgentOrchestrator()
@@ -82,6 +146,14 @@ IO_NET_MODELS = [
     {"id": "openai/gpt-oss-120b", "name": "GPT OSS 120B", "type": "chat"},
     {"id": "zai-org/GLM-4.7", "name": "GLM 4.7", "type": "chat"},
 ]
+
+# --- Credit Cost Configuration ---
+CREDIT_COSTS = {
+    "analyze": 0.50,      # Code analysis
+    "chat": 0.10,         # Chat message
+    "deploy_start": 1.00, # Deployment initiation
+    "deploy_minute": 0.05 # Per minute during execution
+}
 
 # --- Models ---
 class AnalyzeRequest(BaseModel):
@@ -168,10 +240,21 @@ async def analyze_code(request: AnalyzeRequest, current_user: dict = Depends(get
     }
     
     
-    # Check Credits
+    # Check Credits - Now with actual deduction!
+    user_id = current_user.get("id")
+    cost = CREDIT_COSTS["analyze"]
     user_credits = float(current_user.get("credits", 0.0))
-    if user_credits < 1.0: # Minimum 1 credit to analyze
-        raise HTTPException(status_code=402, detail="Insufficient credits. Please top up.")
+    
+    if user_credits < cost:
+        raise HTTPException(
+            status_code=402, 
+            detail=f"Yetersiz kredi. Gereken: {cost}, Mevcut: {user_credits:.2f}"
+        )
+    
+    # Deduct credits for analysis
+    db = get_db()
+    if not db.deduct_credits(user_id, cost, "Code Analysis"):
+        raise HTTPException(status_code=402, detail="Kredi düşürme başarısız.")
 
     # === STEP 2: Architect (Environment Planning) ===
     step2_start = time.time()
@@ -251,16 +334,11 @@ async def analyze_code(request: AnalyzeRequest, current_user: dict = Depends(get
     
     # Store in state for Chat Agent context
     state.last_analysis = analysis_result
-    
+
     return analysis_result
 
-# ...
-try:
-    from db.client import get_db
-except ImportError:
-    get_db = lambda: None
+# Note: get_db is already imported at the top of the file
 
-# ... (inside chat_agent)
 
 @app.post("/v1/chat")
 async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_user)):
@@ -273,27 +351,33 @@ async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_curr
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided")
     
+    # Credit check and deduction for chat
+    user_id = current_user.get("id")
+    cost = CREDIT_COSTS["chat"]
+    user_credits = float(current_user.get("credits", 0.0))
+    
+    if user_credits < cost:
+        raise HTTPException(
+            status_code=402, 
+            detail=f"Yetersiz kredi. Chat maliyeti: {cost}, Mevcut: {user_credits:.2f}"
+        )
+    
+    db = get_db()
+    db.deduct_credits(user_id, cost, "Chat Message")
+    
     # 1. Persist User Message (Real DB)
-    supabase = get_db()
-    if supabase:
+    if db:
         try:
-             supabase.table("io_chat_history").insert({
-                "role": "user",
-                "content": request.messages[-1]["content"]
-            }).execute()
+            db.log_chat(user_id, "user", request.messages[-1]["content"])
         except: pass
 
     # 2. Get Response from ChatAgent (Context Aware)
-    # We can pass model preference if needed, for now use default
     response_content = await ChatAgent.chat(request.messages)
     
     # 3. Persist AI Response
-    if supabase:
+    if db:
         try:
-             supabase.table("io_chat_history").insert({
-                "role": "assistant",
-                "content": response_content
-            }).execute()
+            db.log_chat(user_id, "assistant", response_content)
         except: pass
 
     return {"role": "assistant", "content": response_content}
@@ -646,16 +730,29 @@ async def deploy_execute(request: ExecuteRequest, current_user: dict = Depends(g
     """
     [v1.0] Uploads script to remote server and executes it.
     Supports: Private Key, Password, and Passphrase-protected keys.
+    Credentials are kept in-memory only, never persisted to disk.
     """
     if not os.path.exists(request.script_path):
         raise HTTPException(status_code=404, detail="Script file not found")
     
+    # Credit check and deduction for deployment
+    user_id = current_user.get("id")
+    cost = CREDIT_COSTS["deploy_start"]
+    user_credits = float(current_user.get("credits", 0.0))
+    
+    if user_credits < cost:
+        raise HTTPException(
+            status_code=402, 
+            detail=f"Yetersiz kredi. Deploy maliyeti: {cost}, Mevcut: {user_credits:.2f}"
+        )
+    
+    db = get_db()
+    db.deduct_credits(user_id, cost, "Deployment Start")
+    
     job_id = f"exec_{str(uuid.uuid4())[:8]}"
     
-    if not hasattr(app, 'job_configs'):
-        app.job_configs = {}
-    
-    app.job_configs[job_id] = {
+    # Use JobManager for hybrid storage (metadata in DB, credentials in memory)
+    JobManager.create_job(job_id, "execution", {
         "hostname": request.hostname,
         "username": request.username,
         "port": request.port,
@@ -664,15 +761,17 @@ async def deploy_execute(request: ExecuteRequest, current_user: dict = Depends(g
         "password": request.password,
         "passphrase": request.passphrase,
         "script_path": request.script_path,
-        "status": "pending"
-    }
+        "status": "pending",
+        "user_id": user_id  # Store user_id for per-minute billing
+    })
     
-    logger.info(f"Execution job created: {job_id}")
+    logger.info(f"Execution job created: {job_id} (charged {cost} credits)")
     
     return {
         "job_id": job_id,
         "status": "pending",
-        "message": "Connect to WebSocket /ws/execute/{job_id} for logs"
+        "message": "Connect to WebSocket /ws/execute/{job_id} for logs",
+        "credits_charged": cost
     }
 
 
@@ -685,14 +784,13 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
     await websocket.accept()
     
     try:
-        if not hasattr(app, 'job_configs') or job_id not in app.job_configs:
-            await websocket.send_text("❌ Job not found")
+        config = JobManager.get_job_config(job_id)
+        if not config:
+            await websocket.send_text("❌ Job not found or credentials expired")
             await websocket.close()
             return
         
-        config = app.job_configs[job_id]
-        config["status"] = "running"
-        
+        JobManager.update_status(job_id, "running")
         await websocket.send_text(f"🚀 Starting job: {job_id}")
         
         from services.ssh_manager import SSHManager
@@ -709,13 +807,16 @@ async def websocket_execute(websocket: WebSocket, job_id: str):
         ):
             await websocket.send_text(line)
         
-        config["status"] = "completed"
+        JobManager.update_status(job_id, "completed")
         await websocket.send_text(f"✅ Job {job_id} completed")
         
     except Exception as e:
         logger.error(f"Execution error: {e}")
+        JobManager.update_status(job_id, "failed")
         await websocket.send_text(f"❌ Error: {str(e)}")
     finally:
+        # Clean up credentials from memory
+        JobManager.cleanup_job(job_id)
         try:
             await websocket.close()
         except:
@@ -742,6 +843,7 @@ async def deploy_project(request: ExecuteProjectRequest):
     """
     [v1.0] Uploads a project to remote server and executes it.
     Supports: Multiple files, requirements.txt installation, entry point execution.
+    Credentials are kept in-memory only, never persisted.
     """
     if not os.path.exists(request.project_dir):
         raise HTTPException(status_code=404, detail="Project directory not found")
@@ -752,10 +854,8 @@ async def deploy_project(request: ExecuteProjectRequest):
     
     job_id = f"proj_{str(uuid.uuid4())[:8]}"
     
-    if not hasattr(app, 'job_configs'):
-        app.job_configs = {}
-    
-    app.job_configs[job_id] = {
+    # Use JobManager for hybrid storage
+    JobManager.create_job(job_id, "project", {
         "type": "project",
         "hostname": request.hostname,
         "username": request.username,
@@ -768,7 +868,7 @@ async def deploy_project(request: ExecuteProjectRequest):
         "entry_point": request.entry_point,
         "install_requirements": request.install_requirements,
         "status": "pending"
-    }
+    })
     
     logger.info(f"Project execution job created: {job_id}")
     
@@ -788,20 +888,18 @@ async def websocket_execute_project(websocket: WebSocket, job_id: str):
     await websocket.accept()
     
     try:
-        if not hasattr(app, 'job_configs') or job_id not in app.job_configs:
-            await websocket.send_text("❌ Job not found")
+        config = JobManager.get_job_config(job_id)
+        if not config:
+            await websocket.send_text("❌ Job not found or credentials expired")
             await websocket.close()
             return
-        
-        config = app.job_configs[job_id]
         
         if config.get("type") != "project":
             await websocket.send_text("❌ Invalid job type for this endpoint")
             await websocket.close()
             return
         
-        config["status"] = "running"
-        
+        JobManager.update_status(job_id, "running")
         await websocket.send_text(f"🚀 Starting project job: {job_id}")
         
         from services.ssh_manager import SSHManager
@@ -820,17 +918,21 @@ async def websocket_execute_project(websocket: WebSocket, job_id: str):
         ):
             await websocket.send_text(line)
         
-        config["status"] = "completed"
+        JobManager.update_status(job_id, "completed")
         await websocket.send_text(f"✅ Project job {job_id} completed")
         
     except Exception as e:
         logger.error(f"Project execution error: {e}")
+        JobManager.update_status(job_id, "failed")
         await websocket.send_text(f"❌ Error: {str(e)}")
     finally:
+        # Clean up credentials from memory
+        JobManager.cleanup_job(job_id)
         try:
             await websocket.close()
         except:
             pass
+
 
 @app.websocket("/ws/logs/{job_id}")
 async def websocket_logs(websocket: WebSocket, job_id: str):
