@@ -929,7 +929,7 @@ async def deploy_project(request: ExecuteProjectRequest):
         "project_dir": request.project_dir,
         "entry_point": request.entry_point,
         "install_requirements": request.install_requirements,
-        "status": "pending"
+        "status": "PENDING"
     })
     
     logger.info(f"Project execution job created: {job_id}")
@@ -961,7 +961,7 @@ async def websocket_execute_project(websocket: WebSocket, job_id: str):
             await websocket.close()
             return
         
-        JobManager.update_status(job_id, "running")
+        JobManager.update_status(job_id, "RUNNING")
         await websocket.send_text(f"🚀 Starting project job: {job_id}")
         
         from services.ssh_manager import SSHManager

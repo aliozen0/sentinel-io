@@ -203,7 +203,7 @@ class SSHManager:
             yield f"🚀 Executing: {command}"
             yield "─" * 50
             
-            stdin, stdout, stderr = client.exec_command(command, get_pty=True)
+            stdin, stdout, stderr = client.exec_command(command, get_pty=False)
             
             for line in iter(stdout.readline, ""):
                 if line:
