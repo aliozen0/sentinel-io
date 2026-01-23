@@ -336,9 +336,13 @@ export default function DeployPage() {
             const endpoint = isProject ? '/v1/deploy/project' : '/v1/deploy/execute'
             const payload = isProject ? bodyProject : bodySingle
 
+            const token = localStorage.getItem("token")
+            const headers: any = { "Content-Type": "application/json" }
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
             const res = await fetch(`${NEXT_PUBLIC_API_URL}${endpoint}`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: headers,
                 body: JSON.stringify(payload)
             })
 

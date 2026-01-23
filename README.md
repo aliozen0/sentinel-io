@@ -122,6 +122,7 @@ flowchart LR
 | 🔧 **OpsAgent** | Tool Use ile aksiyon alan ajan (bakiye sorgula, job durdur) |
 | 🔄 **Self-Healing** | Bilinmeyen hatalar için RAG'dan çözüm önerisi |
 | 📚 **Knowledge UI** | Drag & drop dosya yükleme arayüzü |
+| 📊 **Canlı Pipeline** | Analiz adımlarını (Auditor/Sniper) WebSocket ile anlık izleme |
 
 **Embedding Modeli:** `sentence-transformers/all-MiniLM-L6-v2` (Yerel, ücretsiz, API gerektirmez)
 
