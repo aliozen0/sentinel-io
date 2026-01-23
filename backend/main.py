@@ -917,7 +917,7 @@ async def deploy_project(request: ExecuteProjectRequest):
     job_id = f"proj_{str(uuid.uuid4())[:8]}"
     
     # Use JobManager for hybrid storage
-    JobManager.create_job(job_id, "project", {
+    JobManager.create_job(job_id, "LIVE", {
         "type": "project",
         "hostname": request.hostname,
         "username": request.username,
