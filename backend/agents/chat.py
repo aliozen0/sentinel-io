@@ -33,13 +33,22 @@ Professional, technical, but helpful. Be concise.
 """
 
     @staticmethod
-    async def chat(messages: List[Dict[str, str]], model: str = None) -> str:
+    async def chat(messages: List[Dict[str, str]], model: str = None, user_context: Dict = None) -> str:
         """
         Processes chat messages with context injection.
         """
         # 1. Build Context
         context_str = "CURRENT PROJECT STATE:\n"
         
+        # Add User Context (Credits, Mode)
+        if user_context:
+            context_str += f"""
+[USER INFO]
+- Username: {user_context.get('username', 'Unknown')}
+- Credits: ${user_context.get('credits', 0.0):.2f}
+- Mode: {user_context.get('mode', 'LOCAL')}
+"""
+
         # Add Last Analysis
         if state.last_analysis:
             analysis = state.last_analysis

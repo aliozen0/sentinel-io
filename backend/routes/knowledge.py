@@ -234,7 +234,8 @@ async def list_documents(
     Yüklenmiş tüm dokümanları listeler.
     """
     try:
-        documents = await MemoryCore.get_all_documents(limit=limit)
+        user_id = current_user.get("id") or current_user.get("sub")
+        documents = await MemoryCore.get_all_documents(limit=limit, user_id=user_id)
         
         # DocumentInfo formatına çevir
         result = []
@@ -324,7 +325,8 @@ async def get_stats(
     Vektör veritabanı istatistiklerini döndürür.
     """
     try:
-        stats = await MemoryCore.get_stats()
+        user_id = current_user.get("id") or current_user.get("sub")
+        stats = await MemoryCore.get_stats(user_id=user_id)
         return stats
         
     except Exception as e:

@@ -154,16 +154,19 @@ class MemoryCore:
             load_dotenv()
             
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_KEY")
+            # Backend işlemleri için Service Role Key tercih et (Admin yetkisi, RLS bypass)
+            supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
             
             if not supabase_url or not supabase_key:
-                raise ValueError("Supabase credentials missing")
+                raise ValueError("Supabase credentials missing (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)")
             
             client = create_client(supabase_url, supabase_key)
             embedder = _get_embedder()
             
             # Embedding oluştur
             embedding = embedder.encode(text).tolist()
+            
+            logger.info(f"Adding document to Supabase: id={doc_id}, user_id={user_id}, text_len={len(text)}")
             
             # Supabase'e ekle (user_id ile)
             result = client.table("documents").insert({
@@ -175,12 +178,23 @@ class MemoryCore:
                 "source": metadata.get("source", "unknown")
             }).execute()
             
+            # Hata kontrolü
+            if hasattr(result, 'error') and result.error:
+                logger.error(f"Supabase insert error: {result.error}")
+                return {"success": False, "error": str(result.error)}
+            
             logger.info(f"Document added to Supabase: {doc_id} (user: {user_id})")
             return {"success": True, "doc_id": doc_id, "chunks_added": 1, "mode": "CLOUD"}
             
         except Exception as e:
-            logger.error(f"Supabase add error: {e}")
-            return {"success": False, "error": str(e)}
+            error_msg = str(e)
+            logger.error(f"Supabase add error: {error_msg}")
+            # Daha detaylı hata mesajı
+            if "documents" in error_msg.lower() and "not exist" in error_msg.lower():
+                return {"success": False, "error": "documents tablosu bulunamadı. Lütfen migration'ı çalıştırın."}
+            if "user_id" in error_msg.lower() or "uuid" in error_msg.lower():
+                return {"success": False, "error": f"user_id format hatası: {user_id}"}
+            return {"success": False, "error": error_msg}
     
     @staticmethod
     async def search(query: str, top_k: int = 5, user_id: str = None) -> List[Dict[str, Any]]:
@@ -324,13 +338,18 @@ class MemoryCore:
             return {"success": False, "error": str(e)}
     
     @staticmethod
-    async def get_stats() -> Dict[str, Any]:
+    @staticmethod
+    async def get_stats(user_id: str = None) -> Dict[str, Any]:
         """Vektör veritabanı istatistiklerini döndür."""
         try:
             mode = MemoryCore.get_mode()
             
             if mode == "LOCAL":
                 collection = _get_chroma_collection()
+                # ChromaDB count logic handles user filtering if query provided, but simple .count() is global.
+                # For Local, we accept global count or filter if supported.
+                # ChromaDB .count() doesn't take args. To filter, we'd need .get().
+                # For efficiency, we might just return total.
                 count = collection.count()
                 return {
                     "mode": mode,
@@ -342,15 +361,21 @@ class MemoryCore:
                 from dotenv import load_dotenv
                 load_dotenv()
                 
+                # Admin Key (Service Role) to bypass RLS
                 client = create_client(
                     os.getenv("SUPABASE_URL"),
-                    os.getenv("SUPABASE_KEY")
+                    os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
                 )
-                result = client.table("documents").select("id", count="exact").execute()
+                
+                query = client.table("documents").select("id", count="exact")
+                if user_id:
+                    query = query.eq("user_id", user_id)
+                    
+                result = query.execute()
                 
                 return {
                     "mode": mode,
-                    "document_count": result.count if result.count else 0,
+                    "document_count": result.count if result.count is not None else 0,
                     "storage": "Supabase pgvector (Cloud)"
                 }
                 
@@ -359,7 +384,7 @@ class MemoryCore:
             return {"mode": MemoryCore.get_mode(), "error": str(e)}
     
     @staticmethod
-    async def get_all_documents(limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_all_documents(limit: int = 100, user_id: str = None) -> List[Dict[str, Any]]:
         """Tüm dokümanları listele (sayfalama ile)."""
         try:
             if _is_cloud_mode():
@@ -367,14 +392,19 @@ class MemoryCore:
                 from dotenv import load_dotenv
                 load_dotenv()
                 
+                # Admin yetkisi ile oku (RLS bypass)
                 client = create_client(
                     os.getenv("SUPABASE_URL"),
-                    os.getenv("SUPABASE_KEY")
+                    os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
                 )
-                result = client.table("documents")\
-                    .select("id, source, metadata, created_at")\
-                    .limit(limit)\
-                    .execute()
+                
+                query = client.table("documents").select("id, source, metadata, created_at")
+                
+                # Kullanıcı filtresi
+                if user_id:
+                    query = query.eq("user_id", user_id)
+                
+                result = query.limit(limit).execute()
                 
                 return result.data if result.data else []
             else:

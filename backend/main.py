@@ -378,7 +378,14 @@ async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_curr
     default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
     model_name = request.model if request.model else default_model
     
-    response_content = await ChatAgent.chat(request.messages, model=model_name)
+    # Build User Context for Chat Agent
+    user_context = {
+        "username": current_user.get("username", "Unknown"),
+        "credits": user_credits - cost, # Show post-deduction balance
+        "mode": db.mode
+    }
+    
+    response_content = await ChatAgent.chat(request.messages, model=model_name, user_context=user_context)
     
     # 3. Persist AI Response
     if db:
