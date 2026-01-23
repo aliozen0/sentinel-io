@@ -428,22 +428,16 @@ async def chat_ops_agent(request: ChatRequest, current_user: dict = Depends(get_
         except: pass
 
     # Get Response from OpsAgent (Tool-Augmented)
-    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
-    model_name = request.model if request.model else default_model
+    response_data = await OpsAgent.chat(request.messages, user_id=user_id, model=request.model)
     
-    response_content = await OpsAgent.chat(
-        messages=request.messages, 
-        user_id=user_id,
-        model=model_name
-    )
-    
-    # Log AI Response
-    if db:
-        try:
-            db.log_chat(user_id, "assistant", response_content)
-        except: pass
+    # response_data is now a Dict { "content": ..., "sources": ... }
+    # We return it as a structured message
+    return {
+        "role": "assistant", 
+        "content": response_data.get("content", ""),
+        "sources": response_data.get("sources", [])
+    }
 
-    return {"role": "assistant", "content": response_content}
 
 @app.get("/v1/market/status")
 async def market_status():

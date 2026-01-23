@@ -15,13 +15,14 @@ import logging
 import re
 import json
 from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from state_manager import state
 from ai_client import ask_io_intelligence_async
 from db.client import get_db
 from services.memory_core import MemoryCore
+from agents.sniper import Sniper
 
 logger = logging.getLogger("OpsAgent")
 
@@ -33,6 +34,7 @@ class ToolType(Enum):
     STOP_JOB = "stop_job"
     GET_ANALYSIS = "get_analysis"
     GET_JOB_STATUS = "get_job_status"
+    FIND_GPU = "find_gpu"
     NONE = "none"
 
 
@@ -43,6 +45,7 @@ class ToolResult:
     success: bool
     data: Any
     message: str
+    sources: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class OpsAgent:
@@ -88,6 +91,10 @@ SYSTEM_DATA bölümünde sana araç sonuçları verilecek. Bu bilgileri kullan.
         ToolType.GET_JOB_STATUS: [
             r"job durumu", r"job status", r"is.*running", r"çalışıyor mu",
             r"job.*ne oldu"
+        ],
+        ToolType.FIND_GPU: [
+            r"find gpu", r"best gpu", r"ucuz ekran kartı", r"gpu öner", 
+            r"market search", r"en ucuz .* (bul|getir)", r"bana .* bul"
         ]
     }
     
@@ -121,7 +128,7 @@ SYSTEM_DATA bölümünde sana araç sonuçları verilecek. Bu bilgileri kullan.
             r"nasıl", r"how", r"what", r"nedir", r"ne demek",
             r"gpu", r"vram", r"error", r"hata", r"problem",
             r"çözüm", r"solution", r"fix", r"docker", r"tensorflow",
-            r"pytorch", r"cuda", r"memory", r"bellek"
+            r"pytorch", r"cuda", r"memory", r"bellek", r"io-guard", r"nedir"
         ]
         
         for trigger in rag_triggers:
@@ -153,25 +160,69 @@ SYSTEM_DATA bölümünde sana araç sonuçları verilecek. Bu bilgileri kullan.
                 if param:
                     results = await MemoryCore.search(param, top_k=3)
                     if results:
+                        # Extract sources for UI
+                        sources = []
+                        for r in results:
+                            sources.append({
+                                "title": r.get("source", "Unknown"),
+                                "url": f"#doc-{r.get('metadata', {}).get('doc_id')}", # Dummy link or actual if available
+                                "score": r.get("score")
+                            })
+                            
                         return ToolResult(
                             tool=tool,
                             success=True,
                             data={"results": results},
-                            message=f"RAG'dan {len(results)} sonuç bulundu"
+                            message=f"RAG'dan {len(results)} sonuç bulundu",
+                            sources=sources
                         )
                     else:
                         return ToolResult(
                             tool=tool,
                             success=True,
                             data={"results": []},
-                            message="Bilgi tabanında ilgili sonuç bulunamadı"
+                            message="Bilgi tabanında ilgili sonuç bulunamadı",
+                            sources=[]
                         )
                 return ToolResult(
                     tool=tool,
                     success=False,
                     data=None,
-                    message="Arama sorgusu belirtilmedi"
+                    message="Arama sorgusu belirtilmedi",
+                    sources=[]
                 )
+            
+            elif tool == ToolType.FIND_GPU:
+                # Sniper Integration
+                budget = 10.0 # Default assumption or extract from msg
+                gpu_model = "RTX 4090" # Default
+                
+                # Simple extraction of budget/model (Action-Taking refinement)
+                if param:
+                    # Try to extract GPU  model
+                    if "3090" in param: gpu_model = "RTX 3090"
+                    elif "4090" in param: gpu_model = "RTX 4090"
+                    elif "a100" in param.lower(): gpu_model = "A100"
+                    
+                logger.info(f"Sniper hunting for {gpu_model}...")
+                nodes = await Sniper.get_best_nodes(budget_hourly=budget, gpu_model=gpu_model)
+                
+                if nodes:
+                    return ToolResult(
+                        tool=tool,
+                        success=True,
+                        data=[n.dict() for n in nodes],
+                        message=f"Sniper {len(nodes)} uygun node buldu. En iyisi: ${nodes[0].price_hourly}/hr",
+                        sources=[]
+                    )
+                else:
+                    return ToolResult(
+                        tool=tool,
+                        success=False,
+                        data=None,
+                        message="Uygun GPU bulunamadı.",
+                        sources=[]
+                    )
             
             elif tool == ToolType.STOP_JOB:
                 # Simülasyon - gerçek implementasyonda JobManager kullanılır
@@ -249,7 +300,7 @@ SYSTEM_DATA bölümünde sana araç sonuçları verilecek. Bu bilgileri kullan.
         messages: List[Dict[str, str]], 
         user_id: str,
         model: str = None
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
         Operasyonel sohbet - araç kullanımı ile zenginleştirilmiş.
         
@@ -259,7 +310,7 @@ SYSTEM_DATA bölümünde sana araç sonuçları verilecek. Bu bilgileri kullan.
             model: Kullanılacak AI modeli
         
         Returns:
-            AI yanıtı
+            Dict[str, Any]: { "content": AI_RESPONSE, "sources": [...] }
         """
         try:
             # Son mesajı al
@@ -310,17 +361,24 @@ PROJE DURUMU:
             final_user_prompt = f"{history_context}\nUSER: {last_message}"
             
             # LLM çağır
-            response = await ask_io_intelligence_async(
+            response_text = await ask_io_intelligence_async(
                 system_prompt=full_system_prompt,
                 user_prompt=final_user_prompt,
                 model=model
             )
             
-            return response
+            # Return structured response
+            return {
+                "content": response_text,
+                "sources": tool_result.sources
+            }
             
         except Exception as e:
             logger.error(f"OpsAgent chat error: {e}")
-            return f"Üzgünüm, bir hata oluştu: {str(e)}"
+            return {
+                "content": f"Üzgünüm, bir hata oluştu: {str(e)}",
+                "sources": []
+            }
     
     @staticmethod
     async def quick_search(query: str) -> List[Dict[str, Any]]:

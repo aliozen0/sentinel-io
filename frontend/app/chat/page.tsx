@@ -69,14 +69,35 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
                 </div>
 
                 {/* Message Content */}
-                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-full`}>
                     <div className={`px-5 py-3.5 rounded-2xl text-sm shadow-md backdrop-blur-sm border ${isUser
                         ? 'bg-blue-600 text-white rounded-tr-sm border-blue-500/0'
                         : 'bg-zinc-900/60 text-zinc-100 rounded-tl-sm border-white/10'
                         }`}>
                         {renderContent(message.content)}
                     </div>
-                    {/* Timestamp or Status could go here */}
+
+                    {/* Sources Section */}
+                    {message.sources && message.sources.length > 0 && (
+                        <div className="mt-2 text-xs w-full">
+                            <p className="text-zinc-500 mb-1 ml-1 font-medium flex items-center gap-1">
+                                <Terminal className="w-3 h-3" />
+                                Kaynaklar:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {message.sources.map((src, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5 bg-zinc-900/50 border border-zinc-800 rounded px-2 py-1 text-zinc-400">
+                                        <span className="max-w-[150px] truncate">{src.title}</span>
+                                        {src.score > 0 && (
+                                            <span className="text-[10px] opacity-70">
+                                                ({(src.score * 100).toFixed(0)}%)
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
