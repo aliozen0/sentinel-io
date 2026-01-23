@@ -38,3 +38,11 @@ pytest==8.3.4
 # Web Scraping (Market Data)
 beautifulsoup4==4.12.3
 fake-useragent==2.0.3
+
+# RAG & Vector DB (v1.5 Sentinel Intelligence)
+chromadb==0.5.0
+sentence-transformers==2.2.2
+
+# Document Processing (v1.5)
+pypdf==4.0.0
+langchain-text-splitters==0.2.4

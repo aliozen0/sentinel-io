@@ -44,9 +44,56 @@ class RecoveryEngine:
             return RecoveryEngine._fix_ssh_auth(error)
         
         else:
+            # v1.5: RAG-based Self-Healing
+            # Bilinmeyen hata tipleri için yüklenmiş dokümanlarda çözüm ara
+            try:
+                from services.memory_core import MemoryCore
+                
+                # Hata mesajını kullanarak RAG'da arama yap
+                error_query = f"{error.type.value}: {error.message}" if hasattr(error, 'message') else str(error.type.value)
+                
+                # Senkron bağlamda async fonksiyon çağırmak için
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # Zaten bir event loop varsa, create_task kullan
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, MemoryCore.search(error_query, top_k=3))
+                            rag_results = future.result()
+                    else:
+                        rag_results = loop.run_until_complete(MemoryCore.search(error_query, top_k=3))
+                except RuntimeError:
+                    rag_results = asyncio.run(MemoryCore.search(error_query, top_k=3))
+                
+                if rag_results and len(rag_results) > 0:
+                    # En iyi sonucu al
+                    best_match = rag_results[0]
+                    content = best_match.get("content", "")[:500]  # İlk 500 karakter
+                    source = best_match.get("source", "knowledge base")
+                    score = best_match.get("score", 0)
+                    
+                    logger.info(f"RAG found solution for unknown error (score: {score:.2f})")
+                    
+                    return RecoveryAction(
+                        applicable=True,
+                        description=f"🤖 AI Önerisi (Kaynak: {source}, Güven: {score:.0%}):\n{content}",
+                        command=None,  # Manuel uygulama gerekli
+                        requires_user_approval=True,
+                        estimated_time=0,
+                        success_message="AI önerisi uygulandı"
+                    )
+                else:
+                    logger.info("RAG search returned no results for unknown error")
+                    
+            except Exception as e:
+                logger.warning(f"RAG search failed for self-healing: {e}")
+            
+            # RAG'dan sonuç bulunamazsa varsayılan yanıt
             return RecoveryAction(
                 applicable=False,
-                description="Unknown error type - manual intervention required",
+                description="Bilinmeyen hata - bilgi tabanında çözüm bulunamadı, manuel müdahale gerekli",
                 requires_user_approval=True
             )
     

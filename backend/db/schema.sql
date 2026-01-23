@@ -51,3 +51,16 @@ CREATE TABLE IF NOT EXISTS ssh_keys (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(user_id) REFERENCES profiles(id)
 );
+
+-- Documents (v1.5 RAG Knowledge Base)
+-- NOT: SQLite'da vector tipi yok, ChromaDB vektörleri saklar
+-- Bu tablo sadece metadata için (LOCAL modda ChromaDB kullanılır)
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,          -- Doküman sahibi
+  source TEXT NOT NULL,           -- Dosya adı
+  content TEXT,                   -- Doküman içeriği (opsiyonel, chunk'lar için)
+  metadata TEXT,                  -- JSON: chunk_index, total_chunks, file_type
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES profiles(id)
+);

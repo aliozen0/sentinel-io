@@ -2,7 +2,65 @@
 
 **io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.4-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.5-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue) ![RAG](https://img.shields.io/badge/RAG-Enabled-purple.svg)
+
+---
+
+## 🏗️ Sistem Mimarisi
+
+```mermaid
+flowchart TB
+    subgraph Frontend["🖥️ Frontend (Next.js 14)"]
+        Dashboard["📊 Dashboard"]
+        Analyze["🔍 Analyze"]
+        Chat["💬 Chat"]
+        Deploy["🚀 Deploy"]
+        Knowledge["📚 Knowledge"]
+    end
+
+    subgraph Backend["⚙️ Backend (FastAPI)"]
+        API["REST API"]
+        WS["WebSocket"]
+        
+        subgraph Agents["🤖 Ajanlar"]
+            Auditor["🕵️ Auditor"]
+            Sniper["🎯 Sniper"]
+            ChatAgent["💬 ChatAgent"]
+            OpsAgent["🔧 OpsAgent"]
+            Recovery["🔄 RecoveryEngine"]
+        end
+        
+        subgraph Services["🔌 Servisler"]
+            MemoryCore["🧠 MemoryCore"]
+            SSH["🔐 SSH Manager"]
+            Orchestrator["🎭 Orchestrator"]
+        end
+    end
+
+    subgraph Storage["💾 Veri Katmanı"]
+        direction LR
+        SQLite["📁 SQLite (Local)"]
+        Supabase["☁️ Supabase (Cloud)"]
+        ChromaDB["🔮 ChromaDB (RAG)"]
+    end
+
+    subgraph External["🌐 Dış Servisler"]
+        IONet["io.net API"]
+        DeepSeek["DeepSeek AI"]
+        GPU["GPU Nodes"]
+    end
+
+    Frontend --> API
+    Frontend --> WS
+    API --> Agents
+    Agents --> Services
+    Services --> Storage
+    Services --> External
+    
+    style MemoryCore fill:#9333ea,color:#fff
+    style OpsAgent fill:#9333ea,color:#fff
+    style Knowledge fill:#9333ea,color:#fff
+```
 
 ---
 
@@ -15,7 +73,59 @@ Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemle
 3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
 4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
 
-### 🌟 v1.4 Yükseltmesi (Yeni!)
+### 🌟 v1.5 "Sentinel Intelligence" (Yeni!)
+
+Modüler **RAG (Retrieval-Augmented Generation)** ve **Agentic** mimari:
+
+```mermaid
+flowchart LR
+    subgraph Upload["📤 Bilgi Yükleme"]
+        PDF["PDF Dosyası"]
+        TXT["TXT Dosyası"]
+    end
+    
+    subgraph Processing["⚙️ İşleme"]
+        Extract["Metin Çıkar"]
+        Chunk["500 char Parçala"]
+        Embed["Embedding Oluştur"]
+    end
+    
+    subgraph Storage["💾 Vektör DB"]
+        ChromaDB2["ChromaDB (Local)"]
+        Supabase2["Supabase pgvector (Cloud)"]
+    end
+    
+    subgraph Search["🔍 Arama"]
+        Query["Kullanıcı Sorusu"]
+        VectorSearch["Semantik Arama"]
+        Results["RAG Sonuçları"]
+    end
+
+    PDF --> Extract
+    TXT --> Extract
+    Extract --> Chunk
+    Chunk --> Embed
+    Embed --> ChromaDB2
+    Embed --> Supabase2
+    
+    Query --> VectorSearch
+    VectorSearch --> Results
+    
+    style ChromaDB2 fill:#9333ea,color:#fff
+    style Supabase2 fill:#9333ea,color:#fff
+```
+
+| Yeni Özellik | Açıklama |
+|--------------|----------|
+| 🧠 **Hibrit RAG Hafızası** | ChromaDB (local) veya Supabase pgvector (cloud) otomatik seçim |
+| 📄 **Bilgi Yükleme** | PDF/TXT dosyalarınızı yükleyerek AI'ı eğitin |
+| 🔧 **OpsAgent** | Tool Use ile aksiyon alan ajan (bakiye sorgula, job durdur) |
+| 🔄 **Self-Healing** | Bilinmeyen hatalar için RAG'dan çözüm önerisi |
+| 📚 **Knowledge UI** | Drag & drop dosya yükleme arayüzü |
+
+**Embedding Modeli:** `sentence-transformers/all-MiniLM-L6-v2` (Yerel, ücretsiz, API gerektirmez)
+
+### 🌟 v1.4 Yükseltmesi
 
 Kullanıcı deneyimi (UX) ve görsel tasarım tamamen yenilendi:
 
@@ -39,6 +149,7 @@ Sistem, uçtan uca güvenli bir yapı üzerine kuruludur:
 *   **JWT Auth:** Frontend ve Backend arasındaki tüm iletişim (Analyze, Chat, Deploy) **JWT Token** ile şifrelenir.
 *   **Supabase Entegrasyonu:** Cloud modunda, Supabase'in güvenli auth altyapısını kullanır.
 *   **SSH Tunneling:** GPU sunucularına yapılan bağlantılar şifreli tüneller üzerinden gerçekleşir.
+*   **Çoklu Kullanıcı İzolasyonu:** Her kullanıcı sadece kendi dokümanlarını görebilir (RLS).
 
 ## 🧠 Çekirdek Ajanlar (Backend)
 
@@ -47,7 +158,9 @@ Sistem, uçtan uca güvenli bir yapı üzerine kuruludur:
 | **🕵️ Auditor** | Statik Analiz | Kodunuzu okur, kütüphane ve VRAM gereksinimlerini belirler. |
 | **🎯 Sniper** | Piyasa Arbitrajı | Canlı API verisiyle `Skor = (Fiyat/Performans) + Güvenilirlik` analizi yapar. |
 | **🔐 Connector** | Güvenli Bağlantı | SSH Tünelleme ve sunucu sağlığı (uptime) kontrolü sağlar. |
-| **🤖 Assistant** | Genel Zeka | Teknik destek veren, veritabanı hafızalı sohbet botu. |
+| **🤖 ChatAgent** | Genel Zeka | Teknik destek veren, veritabanı hafızalı sohbet botu. |
+| **🔧 OpsAgent** | Tool Use | Bakiye sorgula, RAG ara, job durdur gibi aksiyonlar alır. |
+| **🔄 RecoveryEngine** | Self-Healing | Hatalar için RAG'dan çözüm önerir. |
 
 ## 💻 Arayüz (Frontend)
 
@@ -57,6 +170,7 @@ Sistem, uçtan uca güvenli bir yapı üzerine kuruludur:
 -   **Analyze:** Kodunuzu yapıştırın, Ajanlar analiz etsin.
 -   **Deploy:** İster simülasyon yapın, ister **SSH Anahtarı** ekleyerek gerçek sunucunuza bağlanın.
 -   **Chat:** Asistan ile konuşun, geçmiş konuşmalarınızı kaybetmeyin.
+-   **Knowledge:** PDF/TXT dosyaları yükleyerek AI'ı eğitin.
 
 ---
 
@@ -241,19 +355,38 @@ Demo'daki akış, gerçek bir io.net GPU node'una veya herhangi bir SSH erişiml
 
 ---
 
-## �📂 Proje Yapısı
+## 📂 Proje Yapısı
 
 ```
 io-guard/
-├── backend/                # Python FastAPI (Beyin)
-│   ├── agents/             # Ajanlar (Sniper, Auditor)
-│   ├── db/                 # Veritabanı İstemcisi & Şema
-│   ├── services/           # Servisler (SSH Manager)
-│   └── main.py             # API Endpoint'leri
-├── frontend/               # Next.js 14 (Arayüz)
-│   ├── app/                # Sayfalar (Dashboard, Deploy)
-│   └── components/         # UI Bileşenleri (SSH Modal, Charts)
-└── docker-compose.yml      # Orkestrasyon
+├── backend/                    # Python FastAPI (Beyin)
+│   ├── agents/                 # Ajanlar
+│   │   ├── auditor.py          # Kod analizi
+│   │   ├── sniper.py           # Piyasa arbitrajı
+│   │   ├── chat.py             # Sohbet ajanı
+│   │   ├── chat_ops.py         # 🆕 Tool Use ajanı
+│   │   └── recovery_engine.py  # 🔄 Self-healing + RAG
+│   ├── db/                     # Veritabanı
+│   │   ├── client.py           # Hibrit DB istemcisi
+│   │   └── schema.sql          # SQLite şeması
+│   ├── routes/                 # API Router'ları
+│   │   ├── knowledge.py        # 🆕 RAG endpoint'leri
+│   │   └── auth_routes.py      # Kimlik doğrulama
+│   ├── services/               # Servisler
+│   │   ├── memory_core.py      # 🆕 Hibrit RAG hafızası
+│   │   ├── ssh_manager.py      # SSH bağlantıları
+│   │   └── orchestrator.py     # Ajan orkestratörü
+│   ├── migrations/             # Veritabanı migrations
+│   │   └── 003_documents_pgvector.sql  # 🆕 Supabase RAG tablosu
+│   └── main.py                 # API Endpoint'leri
+├── frontend/                   # Next.js 14 (Arayüz)
+│   ├── app/
+│   │   ├── knowledge/          # 🆕 Bilgi yükleme sayfası
+│   │   ├── chat/               # Sohbet
+│   │   ├── deploy/             # Deployment
+│   │   └── analyze/            # Kod analizi
+│   └── components/             # UI Bileşenleri
+└── docker-compose.yml          # Orkestrasyon
 ```
 
 ## 🔮 Yol Haritası (Roadmap)
@@ -265,8 +398,11 @@ io-guard/
 -   [x] **Adım 5: Canlı Yürütme** (Remote SSH Execution) ✅
 -   [x] **Adım 6: Otonom Kurtarma** (AI-Powered Error Recovery) ✅
 -   [x] **Adım 7: Demo Credentials UI** (Frontend Auto-Fill) ✅
--   [ ] **Adım 8: SSH Key Management** (Database Storage) 🚧
--   [ ] **Adım 9: Connection Profiles** (Saved Configs) 🚧
+-   [x] **Adım 8: RAG Hafızası** (Hibrit Vektör DB) ✅ 🆕
+-   [x] **Adım 9: Bilgi Yükleme** (PDF/TXT Ingestion) ✅ 🆕
+-   [x] **Adım 10: OpsAgent** (Tool Use Ajanı) ✅ 🆕
+-   [x] **Adım 11: Self-Healing RAG** (Bilinmeyen Hatalar için) ✅ 🆕
+
 
 ---
 

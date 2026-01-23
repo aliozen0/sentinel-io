@@ -128,6 +128,10 @@ app.add_middleware(
 # Register Demo Routes
 app.include_router(demo.router, prefix="/v1/connections", tags=["Demo"])
 
+# v1.5: Register Knowledge Router (RAG/Document Upload)
+from routes import knowledge as knowledge_router
+app.include_router(knowledge_router.router, prefix="/v1/knowledge", tags=["Knowledge"])
+
 # Ensure uploads directory exists
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -377,6 +381,56 @@ async def chat_agent(request: ChatRequest, current_user: dict = Depends(get_curr
     response_content = await ChatAgent.chat(request.messages, model=model_name)
     
     # 3. Persist AI Response
+    if db:
+        try:
+            db.log_chat(user_id, "assistant", response_content)
+        except: pass
+
+    return {"role": "assistant", "content": response_content}
+
+
+@app.post("/v1/chat/ops")
+async def chat_ops_agent(request: ChatRequest, current_user: dict = Depends(get_current_user)):
+    """
+    [v1.5] Operational Chat Agent with Tool Use.
+    Can query balance, search RAG, stop jobs, and more.
+    """
+    from agents.chat_ops import OpsAgent
+    
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+    
+    # Credit check and deduction for chat
+    user_id = current_user.get("id")
+    cost = CREDIT_COSTS["chat"]
+    user_credits = float(current_user.get("credits", 0.0))
+    
+    if user_credits < cost:
+        raise HTTPException(
+            status_code=402, 
+            detail=f"Yetersiz kredi. Chat maliyeti: {cost}, Mevcut: {user_credits:.2f}"
+        )
+    
+    db = get_db()
+    db.deduct_credits(user_id, cost, "OpsAgent Chat")
+    
+    # Log User Message
+    if db:
+        try:
+            db.log_chat(user_id, "user", request.messages[-1]["content"])
+        except: pass
+
+    # Get Response from OpsAgent (Tool-Augmented)
+    default_model = os.getenv("IO_MODEL_NAME", "deepseek-ai/DeepSeek-V3.2")
+    model_name = request.model if request.model else default_model
+    
+    response_content = await OpsAgent.chat(
+        messages=request.messages, 
+        user_id=user_id,
+        model=model_name
+    )
+    
+    # Log AI Response
     if db:
         try:
             db.log_chat(user_id, "assistant", response_content)

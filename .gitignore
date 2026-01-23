@@ -112,3 +112,6 @@ backend/market_snapshot.json
 
 # Generated Keys
 backend/keys/
+
+# ChromaDB (v1.5 RAG - Local Vector Store)
+backend/chroma_db/
