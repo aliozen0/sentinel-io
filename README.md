@@ -2,7 +2,7 @@
 
 **io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.3-orange.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.4-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ---
 
@@ -15,7 +15,16 @@ Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemle
 3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
 4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
 
-### 🌟 v1.3 Yükseltmesi (Yeni!)
+### 🌟 v1.4 Yükseltmesi (Yeni!)
+
+Kullanıcı deneyimi (UX) ve görsel tasarım tamamen yenilendi:
+
+-   **Modern Chat Arayüzü:** Tam ekran, glassmorphism efektli ve animasyonlu yeni sohbet deneyimi.
+-   **Zengin Metin Formatlama:** Sohbet mesajlarında **Kalın yazı** ve `Kod Blokları` (sözdizimi vurgulama ile) desteği.
+-   **Akıllı Sabitleme (Smart Anchoring):** Chat input alanı artık ekrana sabitlendi, uzun sohbetlerde sayfa kaydırma sorunu çözüldü.
+-   **UX İyileştirmeleri:** Daha akıcı geçişler ve bilgilendirici yükleme ekranları.
+
+### 🌟 v1.3 Yükseltmesi
 
 Sistem artık çok daha yetenekli ve akıllı:
 
