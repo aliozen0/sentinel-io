@@ -57,7 +57,7 @@ Modern yapay zeka geliştiricileri şu sorunlarla karşılaşıyor:
 
 1. **👨‍⚖️ Auditor:** Kodunuzu analiz eder (framework, VRAM, bağımlılıklar)
 2. **🏗️ Architect:** Docker ortamını planlar (base image, CUDA versiyonu)
-3. **🎯 Sniper:** En uygun GPU'yu bulur (fiyat/performans optimizasyonu)
+3. **🎯 Sniper:** io.net API'sini kullanarak gerçek zamanlı GPU stoğu ve fiyatlarını analiz eder, en uygun sunucuyu bulur.
 
 ---
 
@@ -126,11 +126,16 @@ cd sentinel-io
 
 # 2️⃣ Ortam değişkenlerini ayarlayın
 cp .env.example .env
-nano .env  # Supabase bilgilerinizi girin (veya SQLite için boş bırakın)
+
+# ÖNEMLİ: Supabase kullanacaksanız bilgileri girin.
+# SQLite (yerel mod) için hiçbir değişiklik yapmanıza gerek yoktur.
+nano .env
 
 # 3️⃣ Sistemi başlatın
 docker-compose up --build
 ```
+
+> ⚠️ **Önemli:** Eğer **SQLite (Yerel)** modunda çalışacaksanız `.env` dosyasındaki **Supabase** ile ilgili kısımları silin.
 
 **Tarayıcınızda açın:**
 - 🖥️ **Frontend:** http://localhost:3000
