@@ -101,6 +101,34 @@ export default function LoginPage() {
                             />
                         </div>
 
+                        <div className="mt-6 space-y-4">
+                            <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-400">
+                                <div className="flex items-start gap-2">
+                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-yellow-500" />
+                                    <div className="space-y-1">
+                                        <p className="font-medium text-yellow-500">Önemli Bilgilendirme</p>
+                                        <p className="text-xs leading-relaxed opacity-90 text-yellow-200/80">
+                                            Render.com altyapısı ("Cold Start") nedeniyle giriş işlemi 60 saniye kadar sürebilir. Lütfen sabırla bekleyiniz.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-md bg-zinc-950/50 border border-zinc-800 space-y-2">
+                                <p className="text-xs font-medium text-zinc-400 text-center uppercase tracking-wider">Örnek Hesap Bilgileri</p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="flex flex-col items-center p-2 rounded bg-zinc-900/50 border border-zinc-800/50">
+                                        <span className="text-zinc-500 text-[10px] uppercase mb-1">Kullanıcı Adı</span>
+                                        <span className="text-zinc-200 font-mono font-medium tracking-wide">admin</span>
+                                    </div>
+                                    <div className="flex flex-col items-center p-2 rounded bg-zinc-900/50 border border-zinc-800/50">
+                                        <span className="text-zinc-500 text-[10px] uppercase mb-1">Şifre</span>
+                                        <span className="text-zinc-200 font-mono font-medium tracking-wide">1234</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex items-center gap-2 text-xs text-zinc-500 mt-4 justify-center">
                             <Server className="h-3 w-3" />
                             <span>System Mode: Auto-Detect (Local/Cloud)</span>
