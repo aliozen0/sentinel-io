@@ -77,6 +77,14 @@ export default function LoginPage() {
                             </div>
                         )}
 
+                        <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-sm text-emerald-400">
+                            <p className="font-semibold mb-1">Example Account:</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs opacity-90">
+                                <span>Username: <code className="bg-black/20 px-1 rounded">admin</code></span>
+                                <span>Password: <code className="bg-black/20 px-1 rounded">1234</code></span>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="username">Username</Label>
                             <Input
