@@ -348,7 +348,17 @@ class DatabaseClient:
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            if row:
+                data = dict(row)
+                # Auto-deserialize metadata for SQLite
+                if isinstance(data.get("metadata"), str):
+                    try:
+                        import json
+                        data["metadata"] = json.loads(data["metadata"])
+                    except:
+                        data["metadata"] = {}
+                return data
+            return None
 
     def get_user_jobs(self, user_id: str) -> list:
         if self.mode == "CLOUD":
@@ -362,7 +372,17 @@ class DatabaseClient:
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
             rows = cursor.fetchall()
-            return [dict(row) for row in rows]
+            results = []
+            for row in rows:
+                data = dict(row)
+                if isinstance(data.get("metadata"), str):
+                    try:
+                        import json
+                        data["metadata"] = json.loads(data["metadata"])
+                    except:
+                        data["metadata"] = {}
+                results.append(data)
+            return results
 
 # Helper for Dependency Injection
 def get_db():
