@@ -270,7 +270,7 @@ class SSHManager:
         yield f"✅ {message}"
         yield f"📍 Remote path: {remote_path}"
         
-        command = f"python3 {remote_path}"
+        command = f"python3 -u {remote_path}"
         
         async for line in SSHManager.execute_command(
             hostname=hostname,
@@ -447,7 +447,7 @@ class SSHManager:
         yield "─" * 50
         yield f"▶️ Executing: {entry_point}"
         
-        run_cmd = f"cd {remote_project_dir} && python3 {entry_point}"
+        run_cmd = f"cd {remote_project_dir} && python3 -u {entry_point}"
         
         async for line in SSHManager.execute_command(
             hostname=hostname,
