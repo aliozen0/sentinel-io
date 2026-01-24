@@ -1,4 +1,5 @@
 # io-Guard Backend Dependencies (Pinned for Production)
+numpy<2.0.0
 # Core Framework
 fastapi==0.115.0
 uvicorn==0.32.0
