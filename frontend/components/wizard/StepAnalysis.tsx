@@ -243,6 +243,23 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
         }
     }
 
+    const handleLoadDemo = async () => {
+        try {
+            const res = await fetch('/examples/demo_script.py')
+            if (res.ok) {
+                const text = await res.text()
+                setCode(text)
+                setFileName("demo_script.py")
+                setFileInfo({ filename: "demo_script.py", isProject: false, size: new Blob([text]).size })
+            } else {
+                alert("Demo dosyası bulunamadı")
+            }
+        } catch (e) {
+            console.error(e)
+            alert("Demo yüklenemedi")
+        }
+    }
+
     const handleDragOver = (e: DragEvent) => { e.preventDefault(); setIsDragging(true) }
     const handleDragLeave = (e: DragEvent) => { e.preventDefault(); setIsDragging(false) }
     const handleDrop = (e: DragEvent) => {
@@ -423,7 +440,19 @@ export default function StepAnalysis({ onComplete, initialCode = "", initialResu
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Terminal className="w-4 h-4 text-blue-400" />
                                 Kaynak Kod
-                                {fileName && <span className="ml-auto text-sm font-normal text-zinc-400 truncate max-w-[200px]">{fileName}</span>}
+                                {fileName ? (
+                                    <span className="ml-auto text-sm font-normal text-zinc-400 truncate max-w-[200px]">{fileName}</span>
+                                ) : (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleLoadDemo}
+                                        className="ml-auto text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7"
+                                    >
+                                        <FileCode className="w-3 h-3 mr-1" />
+                                        Demo Yükle
+                                    </Button>
+                                )}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col space-y-3 min-h-0">

@@ -278,7 +278,8 @@ export default function DeployPage() {
                     ...data,
                     isProject: true,
                     local_path: data.project_dir, // Use project dir for project execution
-                    size: selectedFile.size
+                    size: selectedFile.size,
+                    entry_point: "main.py" // Default for demo, or extracting from response if available
                 } : data
 
                 setUploadedFile(result)
@@ -296,6 +297,21 @@ export default function DeployPage() {
             setLogs(prev => [...prev, `❌ Upload error: ${err}`])
         } finally {
             setUploading(false)
+        }
+    }
+
+    const handleLoadDemo = async () => {
+        try {
+            setLogs(prev => [...prev, "🔄 Loading demo project..."])
+            const res = await fetch('/examples/demo_project.zip')
+            if (!res.ok) throw new Error("Demo not found")
+            const blob = await res.blob()
+            const file = new File([blob], "demo_project.zip", { type: "application/zip" })
+            setSelectedFile(file)
+            setUploadedFile(null)
+            setLogs(prev => [...prev, `📁 Loaded Demo Project: demo_project.zip (${(file.size / 1024).toFixed(2)} KB)`])
+        } catch (e) {
+            setLogs(prev => [...prev, "❌ Failed to load demo project"])
         }
     }
 
@@ -504,19 +520,31 @@ export default function DeployPage() {
                                 />
 
                                 {!selectedFile ? (
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={!connectionVerified}
-                                        className={`w-full p-4 border-2 border-dashed rounded-lg text-center transition-all ${connectionVerified
-                                            ? 'border-zinc-600 hover:border-zinc-500 cursor-pointer group'
-                                            : 'border-zinc-800 cursor-not-allowed opacity-50'
-                                            }`}
-                                    >
-                                        <Upload className="w-8 h-8 mx-auto mb-2 text-zinc-500 group-hover:text-zinc-300" />
-                                        <p className="text-sm text-zinc-400 group-hover:text-zinc-200">
-                                            Select Python file or ZIP
-                                        </p>
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={!connectionVerified}
+                                            className={`w-full p-4 border-2 border-dashed rounded-lg text-center transition-all ${connectionVerified
+                                                ? 'border-zinc-600 hover:border-zinc-500 cursor-pointer group'
+                                                : 'border-zinc-800 cursor-not-allowed opacity-50'
+                                                }`}
+                                        >
+                                            <Upload className="w-8 h-8 mx-auto mb-2 text-zinc-500 group-hover:text-zinc-300" />
+                                            <p className="text-sm text-zinc-400 group-hover:text-zinc-200">
+                                                Select Python file or ZIP
+                                            </p>
+                                        </button>
+                                        {connectionVerified && (
+                                            <div className="text-center">
+                                                <button
+                                                    onClick={handleLoadDemo}
+                                                    className="text-xs text-blue-500 hover:text-blue-400 underline mt-2"
+                                                >
+                                                    Or load demo project
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
                                         <div className="flex items-center gap-3">

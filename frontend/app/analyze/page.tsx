@@ -403,6 +403,22 @@ export default function AnalyzePage() {
         }
     }
 
+    const handleLoadDemo = async () => {
+        try {
+            const res = await fetch('/examples/demo_script.py')
+            if (res.ok) {
+                const text = await res.text()
+                setCode(text)
+                setFileName("demo_script.py")
+            } else {
+                alert("Demo file not found")
+            }
+        } catch (e) {
+            console.error(e)
+            alert("Failed to load demo")
+        }
+    }
+
     // WebSocket for Analysis Job
     useEffect(() => {
         if (!jobId) return
@@ -474,7 +490,7 @@ export default function AnalyzePage() {
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Terminal className="w-4 h-4 text-blue-400" />
                                 Source Code
-                                {fileName && (
+                                {fileName ? (
                                     <span className="ml-auto text-sm font-normal text-zinc-400 flex items-center gap-2">
                                         <FileCode className="w-4 h-4" />
                                         {fileName}
@@ -485,6 +501,16 @@ export default function AnalyzePage() {
                                             ✕
                                         </button>
                                     </span>
+                                ) : (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleLoadDemo}
+                                        className="ml-auto text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7"
+                                    >
+                                        <FileCode className="w-3 h-3 mr-1" />
+                                        Load Demo
+                                    </Button>
                                 )}
                             </CardTitle>
                         </CardHeader>

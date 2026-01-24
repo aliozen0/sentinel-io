@@ -108,6 +108,46 @@ export default function StepDeployment({
         }, 1500)
     }
 
+    const handleLoadDemo = async () => {
+        setUploading(true)
+        try {
+            const res = await fetch('/examples/demo_project.zip')
+            if (!res.ok) throw new Error("Demo files not found")
+            const blob = await res.blob()
+            const file = new File([blob], "demo_project.zip", { type: "application/zip" })
+
+            const formData = new FormData()
+            const token = localStorage.getItem("token")
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+
+            formData.append('files', file)
+
+            const upRes = await fetch(`${NEXT_PUBLIC_API_URL}/v1/upload/project`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            })
+            const data = await upRes.json()
+            if (upRes.ok) {
+                handleSetUploadedFileInfo({
+                    ...data,
+                    isProject: true,
+                    filename: `${data.file_count} dosya (Demo)`,
+                    local_path: data.project_dir
+                })
+            } else {
+                alert(`Upload failed: ${data.detail}`)
+            }
+
+        } catch (e: any) {
+            console.error(e)
+            alert("Demo load failed: " + e.message)
+        } finally {
+            setUploading(false)
+        }
+    }
+
     return (
         <div className="h-full flex flex-col p-6 space-y-6">
             {/* Info Banner */}
@@ -349,6 +389,15 @@ export default function StepDeployment({
                                         {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
                                         Dosya veya Proje Yükle
                                     </Button>
+                                    <div className="text-center pt-1">
+                                        <button
+                                            onClick={handleLoadDemo}
+                                            disabled={uploading}
+                                            className="text-xs text-blue-500 hover:text-blue-400 underline"
+                                        >
+                                            veya Demo Proje Yükle
+                                        </button>
+                                    </div>
                                     <p className="text-[10px] text-zinc-500 text-center">Birden fazla dosya veya ZIP arşivi seçebilirsiniz</p>
                                 </div>
                             ) : (
