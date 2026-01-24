@@ -192,9 +192,7 @@ docker-compose up --build
 <summary><b>3. Veritabanı Şemasını Yükle</b></summary>
 
 **SQL Editor** → **New Query**
-```sql
--- backend/supabase_setup.sql dosyasının içeriğini buraya yapıştırın
-```
+`backend/supabase_setup.sql` dosyasının içeriğini kopyalayıp buraya yapıştırın.
 **Run** tuşuna basın ✅
 
 </details>
