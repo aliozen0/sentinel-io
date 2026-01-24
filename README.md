@@ -72,6 +72,36 @@ Modern yapay zeka geliştiricileri şu sorunlarla karşılaşıyor:
 
 ---
 
+## 🧠 io Intelligence Kullanımı
+
+**io Intelligence**, io-Guard platformunun "beyni" olarak konumlandırılmıştır ve sistemin tüm otonom karar alma süreçlerinin merkezinde yer alır. Proje genelinde kullanımı **zorunludur** ve aşağıdaki kritik fonksiyonları üstlenir:
+
+### 1. Entegrasyon ve Mimari Rolü
+
+Sistem, `api.intelligence.io.solutions` uç noktası üzerinden io.net'in yapay zeka altyapısına bağlanır. Bu entegrasyon, projenin "Agentic Layer" (Ajan Katmanı) olarak çalışmasını sağlar.
+
+*   **Merkezi Zeka (Core Intelligence):** Arka plandaki Python ajanları (`Auditor`, `Architect`, `OpsAgent`), karmaşık analizleri ve kod yorumlamalarını bu API üzerinden gerçekleştirir.
+*   **Standartlaştırma:** Tüm LLM (Büyük Dil Modeli) çağrıları `backend/ai_client.py` üzerinden standart bir arayüzle yönetilir, bu da model bağımsız bir yapı sunar.
+
+### 2. Ajan Bazlı Katkılar
+
+io Intelligence, io-Guard içindeki her bir ajana özel yetenekler kazandırır:
+
+| Ajan | io Intelligence Rolü | Katkı |
+|------|----------------------|-------|
+| **👨‍⚖️ Auditor** | **Statik Kod Analizi** | Kullanıcı kodunu satır satır okuyarak VRAM gereksinimini, kütüphane bağımlılıklarını ve olası hataları tespit eder. `AST` analizini semantik zeka ile birleştirir. |
+| **🏗️ Architect** | **Ortam Tasarımı** | Kodun çalışacağı en optimize Docker ortamını (CUDA sürümü, Base Image) belirler. Uyumluluk sorunlarını deploy öncesi çözer. |
+| **🎯 Sniper** | **Piyasa Verisi (io.net Explorer)** | `io.net` ağındaki binlerce GPU'nun anlık durumunu, fiyatını ve performansını analiz eder. API üzerinden gerçek zamanlı veri çekerek en iyi fiyat/performans eşleşmesini bulur. |
+| **🔧 OpsAgent** | **Sistem Yönetimi & RAG** | Kullanıcı taleplerini anlayarak veritabanı sorguları yapar, dökümantasyon tarar (RAG) ve sistem komutlarını çalıştırır. |
+
+### 3. Neden Zorunlu?
+
+*   **Maliyet Optimizasyonu:** Sniper ajanı, io.net ağındaki veriyi analiz ederek kullanıcı bütçesine en uygun GPU'yu bulur. Bu, manuel seçimlere göre %60'a varan tasarruf sağlar.
+*   **Otomasyon:** Dockerfile oluşturma ve ortam hazırlama gibi manuel süreçler, io Intelligence sayesinde tamamen otonom hale gelir.
+*   **Hata Önleme:** Auditor ajanı, kod çalışmadan önce olası hataları yakalar ve "deploy-fail-retry" döngüsünü engeller.
+
+---
+
 ## ✨ Temel Özellikler
 
 <table>
