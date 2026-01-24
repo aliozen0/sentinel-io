@@ -14,7 +14,8 @@ import {
     XCircle,
     Loader2,
     Brain,
-    File
+    File,
+    AlertTriangle
 } from "lucide-react"
 
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -227,6 +228,20 @@ export default function KnowledgePage() {
                 )}
             </div>
 
+            {/* Render.com Warning */}
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-orange-200 mb-1">Render.com Altyapı Bilgilendirmesi</h3>
+                        <p className="text-sm text-orange-200/80 leading-relaxed">
+                            Render.com Free Plan kaynak kısıtlamaları (RAM/CPU) nedeniyle, büyük boyutlu dosya yüklemeleri ve işlemeleri başarısız olabilir veya çok uzun sürebilir.
+                            Büyük projeleriniz için uygulamayı <a href="https://github.com/aliozen0/sentinel-io" target="_blank" rel="noopener noreferrer" className="text-orange-300 hover:underline">GitHub</a> üzerinden bilgisayarınıza indirip çalıştırmanız önerilir.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Main Grid */}
             <div className="grid gap-6 lg:grid-cols-2">
 
@@ -292,8 +307,8 @@ export default function KnowledgePage() {
                         {/* Upload Message */}
                         {uploadMessage && (
                             <div className={`mt-4 p-3 rounded-lg flex items-center gap-2 ${uploadMessage.type === 'success'
-                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                                    : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                : 'bg-red-500/10 border border-red-500/20 text-red-400'
                                 }`}>
                                 {uploadMessage.type === 'success'
                                     ? <CheckCircle className="h-4 w-4" />
@@ -350,8 +365,8 @@ export default function KnowledgePage() {
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-mono text-zinc-500">{result.source}</span>
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${result.score > 0.8 ? 'bg-emerald-500/20 text-emerald-400' :
-                                                result.score > 0.5 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                    'bg-zinc-700 text-zinc-400'
+                                            result.score > 0.5 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                'bg-zinc-700 text-zinc-400'
                                             }`}>
                                             {(result.score * 100).toFixed(0)}%
                                         </span>

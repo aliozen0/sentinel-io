@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Code2, MessageSquare, Rocket, Settings, ShieldCheck, Workflow, User, LogOut, Brain } from "lucide-react"
+import { LayoutDashboard, Code2, MessageSquare, Rocket, Settings, ShieldCheck, Workflow, User, LogOut, Brain, Github } from "lucide-react"
 
 const routes = [
     {
@@ -79,6 +79,20 @@ export function Sidebar() {
                             </div>
                         </Link>
                     ))}
+
+                    {/* GitHub Link */}
+                    <Link
+                        href="https://github.com/aliozen0/sentinel-io"
+                        target="_blank"
+                        className={cn(
+                            "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer hover:text-white hover:bg-white/10 rounded-lg transition text-zinc-400 mt-4 border-t border-white/10 pt-4"
+                        )}
+                    >
+                        <div className="flex items-center flex-1">
+                            <Github className="h-5 w-5 mr-3 text-white" />
+                            GitHub Repo
+                        </div>
+                    </Link>
                 </div>
             </div>
             <div className="px-3 py-2 space-y-1">

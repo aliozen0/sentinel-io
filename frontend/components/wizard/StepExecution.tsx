@@ -191,6 +191,20 @@ export default function StepExecution({ deploymentConfig, selectedGpu, onBack, o
                 </div>
             </div>
 
+            {/* Render.com Warning */}
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-orange-200 mb-1 text-sm">Render.com Altyapı Bilgilendirmesi</h3>
+                        <p className="text-xs text-orange-200/80 leading-relaxed">
+                            Render.com Free Plan kaynak kısıtlamaları (RAM/CPU) nedeniyle, yoğun işlem gerektiren durumlarda yavaşlama veya bağlantı kopması yaşanabilir.
+                            Büyük projeleriniz için uygulamayı <a href="https://github.com/aliozen0/sentinel-io" target="_blank" rel="noopener noreferrer" className="text-orange-300 hover:underline">GitHub</a> üzerinden bilgisayarınıza indirip çalıştırmanız önerilir.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Show Report if completed */}
             {executionCompleted && report ? (
                 <ExecutionReport
