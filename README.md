@@ -1,412 +1,601 @@
-# io-Guard: Otonom Hesaplama Aracısı
+# io-Guard: Otonom GPU Orkestrasyon Platformu
 
-**io-Guard**, karmaşık makine öğrenimi iş akışlarını optimize etmek için devasa dağıtık hesaplama ağlarına (örneğin **io.net**) entegre olan akıllı bir sistemdir. Kümeleme, donanım seçimi ve güvenli bağlantı süreçlerini soyutlayan **Ajan Tabanlı Katman-2 (Agentic Layer-2)** çözümüdür.
+<div align="center">
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Status](https://img.shields.io/badge/status-Alpha%20v1.5-green.svg) ![Docker](https://img.shields.io/badge/docker-ready-blue) ![RAG](https://img.shields.io/badge/RAG-Enabled-purple.svg)
+![io-Guard Banner](https://img.shields.io/badge/io--Guard-Agentic%20Layer--2-9333ea?style=for-the-badge)
+
+**Dağıtık GPU ağları için yapay zeka destekli orkestrasyon çözümü**
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v1.5-green.svg)](https://github.com/aliozen0/sentinel-io)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Live Demo](https://img.shields.io/badge/demo-online-success?logo=vercel)](https://sentinel-io-guard.vercel.app/)
+
+[🚀 Hızlı Başlangıç](#-hızlı-başlangıç) • [📖 Dokümantasyon](#-teknik-dokümantasyon) • [🎮 Demo](#-canlı-demo) • [💬 Destek](#-destek)
+
+</div>
+
+---
+
+## 📋 İçindekiler
+
+- [🎯 io-Guard Nedir?](#-io-guard-nedir)
+- [✨ Temel Özellikler](#-temel-özellikler)
+- [🚀 Hızlı Başlangıç](#-hızlı-başlangıç)
+- [🔧 Kurulum Seçenekleri](#-kurulum-seçenekleri)
+- [🎮 Canlı Demo](#-canlı-demo)
+- [🏗️ Sistem Mimarisi](#️-sistem-mimarisi)
+- [🤖 Ajan Sistemi](#-ajan-sistemi)
+- [📚 Kullanım Örnekleri](#-kullanım-örnekleri)
+- [🛡️ Güvenlik](#️-güvenlik)
+- [📖 Teknik Dokümantasyon](#-teknik-dokümantasyon)
+- [🗺️ Yol Haritası](#️-yol-haritası)
+- [💬 Destek](#-destek)
+
+---
+
+## 🎯 io-Guard Nedir?
+
+**io-Guard**, merkeziyetsiz GPU ağlarında (DePIN) çalışan makine öğrenimi iş yüklerini optimize eden **Ajan Tabanlı Katman-2** çözümüdür.
+
+### 🎪 Çözdüğü Problem
+
+Modern yapay zeka geliştiricileri şu sorunlarla karşılaşıyor:
+
+- 💸 **Maliyet Karmaşıklığı:** Hangi GPU provider'ı seçmeli?
+- 🔧 **Manuel Konfigürasyon:** Docker, CUDA, dependencies...
+- 🔒 **Güvenlik Riskleri:** SSH key yönetimi, güvenli bağlantı
+- ⏱️ **Zaman Kaybı:** Deploy sürecinde manuel adımlar
+
+### ✅ io-Guard Çözümü
+
+```
+👨‍💻 Python Kodu → 🤖 Ajanlar Analiz Eder → 💰 En Ucuz GPU Bulur → 🚀 Otomatik Deploy
+```
+
+**3 akıllı ajan** tüm süreci otomatikleştirir:
+
+1. **👨‍⚖️ Auditor:** Kodunuzu analiz eder (framework, VRAM, bağımlılıklar)
+2. **🏗️ Architect:** Docker ortamını planlar (base image, CUDA versiyonu)
+3. **🎯 Sniper:** En uygun GPU'yu bulur (fiyat/performans optimizasyonu)
+
+---
+
+## ✨ Temel Özellikler
+
+<table>
+<tr>
+<td width="50%">
+
+### 🤖 Otonom Ajanlar
+- **Kod Analizi:** AST + LLM hibrit analiz
+- **Piyasa Arbitrajı:** Gerçek zamanlı GPU fiyat taraması
+- **Ortam Planlama:** Otomatik Docker konfigürasyonu
+- **Self-Healing:** Hata durumunda akıllı kurtarma
+
+</td>
+<td width="50%">
+
+### 🧠 RAG Hafızası (v1.5)
+- **Doküman Yükleme:** PDF/TXT dosyalarınızı yükleyin
+- **Semantik Arama:** Vektör tabanlı benzerlik
+- **Tool Use Agent:** Sistem kontrolü ve RAG sorguları
+- **Hibrit DB:** ChromaDB (local) / pgvector (cloud)
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🔐 Güvenlik
+- **Ephemeral Credentials:** SSH key'ler RAM'de
+- **End-to-End Şifreleme:** SSHv2 + TLS 1.3
+- **JWT Authentication:** Stateless token sistemi
+- **Zero-Trust Mimarisi:** Her işlem doğrulanır
+
+</td>
+<td>
+
+### 🚀 Kolay Deploy
+- **Remote Execution:** SSH üzerinden kod çalıştırma
+- **Live Streaming:** Gerçek zamanlı log akışı
+- **Demo Mode:** Mock GPU server ile test
+- **Multi-Model Chat:** DeepSeek, Llama, Qwen desteği
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Hızlı Başlangıç
+
+### Gereksinimler
+
+| Araç | Minimum Versiyon | İndirme |
+|------|------------------|---------|
+| 🐳 Docker Desktop | 20.10+ | [docker.com](https://www.docker.com/products/docker-desktop/) |
+| 📦 Git | 2.0+ | [git-scm.com](https://git-scm.com/) |
+
+### 3 Adımda Kurulum
+
+```bash
+# 1️⃣ Projeyi klonlayın
+git clone https://github.com/aliozen0/sentinel-io.git
+cd sentinel-io
+
+# 2️⃣ Ortam değişkenlerini ayarlayın
+cp .env.example .env
+nano .env  # Supabase bilgilerinizi girin (veya SQLite için boş bırakın)
+
+# 3️⃣ Sistemi başlatın
+docker-compose up --build
+```
+
+**Tarayıcınızda açın:**
+- 🖥️ **Frontend:** http://localhost:3000
+- ⚙️ **Backend API:** http://localhost:8000/docs
+
+> ⚠️ **Not:** İlk çalıştırmada Docker imajlarının indirilmesi 2-5 dakika sürebilir.
+
+---
+
+## 🔧 Kurulum Seçenekleri
+
+### Seçenek 1: Supabase (Bulut) - Önerilen ⭐
+
+**Avantajlar:**
+- ✅ Kalıcı veri saklama
+- ✅ RAG vektör desteği (pgvector)
+- ✅ Çoklu kullanıcı
+- ✅ Otomatik yedekleme
+
+#### Kurulum Adımları
+
+<details>
+<summary><b>1. Supabase Projesi Oluştur</b></summary>
+
+1. [supabase.com](https://supabase.com/) → **"New Project"**
+2. Proje bilgilerini doldurun
+3. Oluşturma sürecini bekleyin (~2 dakika)
+
+</details>
+
+<details>
+<summary><b>2. API Anahtarlarını Al</b></summary>
+
+**Settings → API** bölümünden:
+- `SUPABASE_URL`
+- `SUPABASE_KEY` (anon public)
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_JWT_SECRET` (JWT Settings)
+
+</details>
+
+<details>
+<summary><b>3. Veritabanı Şemasını Yükle</b></summary>
+
+**SQL Editor** → **New Query**
+```sql
+-- backend/supabase_setup.sql dosyasının içeriğini buraya yapıştırın
+```
+**Run** tuşuna basın ✅
+
+</details>
+
+<details>
+<summary><b>4. .env Dosyasını Yapılandır</b></summary>
+
+```bash
+# io.net API (https://ai.io.net/ai/api-keys)
+IO_API_KEY="sk-io-xxxxxxxx"
+IO_BASE_URL="https://api.intelligence.io.solutions/api/v1/"
+IO_MODEL_NAME="deepseek-ai/DeepSeek-V3.2"
+
+# Supabase
+SUPABASE_URL="https://xxx.supabase.co"
+SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_JWT_SECRET="your-jwt-secret"
+```
+
+</details>
+
+### Seçenek 2: SQLite (Yerel) - Hızlı Test 🚀
+
+**Avantajlar:**
+- ✅ Sıfır konfigürasyon
+- ✅ İnternet gerektirmez
+- ✅ Anında başlangıç
+
+**Kurulum:**
+```bash
+# .env dosyasında Supabase anahtarlarını boş bırakın
+# Sistem otomatik olarak SQLite moduna geçer
+IO_API_KEY="sk-io-xxxxxxxx"
+IO_BASE_URL="https://api.intelligence.io.solutions/api/v1/"
+IO_MODEL_NAME="deepseek-ai/DeepSeek-V3.2"
+```
+
+> ⚠️ **Uyarı:** Container yeniden başlatıldığında veriler kaybolur.
+
+---
+
+## 🎮 Canlı Demo
+
+### 🌐 Online Demo
+Yerel kurulum yapmadan denemek için:
+
+- **Frontend:** https://sentinel-io-guard.vercel.app/
+- **Backend API:** https://sentinel-io.onrender.com/docs
+
+> ⚠️ **Free Plan Uyarısı:** Demo sunucular ücretsiz planda çalıştığı için ilk istekte 1-2 dakika uyandırma süresi olabilir.
+
+### 🎯 Local Demo Mode
+
+Gerçek GPU sunucularına bağlanmadan sistemi test edin:
+
+1. **Deploy Sayfası:** http://localhost:3000/deploy
+2. **"Live Mode ⚡"** seçin
+3. **"🎮 Get Demo Server Credentials"** tıklayın
+4. **"✨ Auto-Fill Connection"** ile formu doldurun
+5. **"Test Connection"** ile doğrulayın
+6. Artık kod çalıştırabilirsiniz!
+
+**Demo server özellikleri:**
+- ✅ Gerçek SSH protokolü
+- ✅ SFTP dosya transferi
+- ✅ Uzaktan komut çalıştırma
+- ✅ Canlı log streaming
 
 ---
 
 ## 🏗️ Sistem Mimarisi
 
 ```mermaid
-flowchart TB
-    subgraph Frontend["🖥️ Frontend (Next.js 14)"]
-        Dashboard["📊 Dashboard"]
-        Analyze["🔍 Analyze"]
-        Chat["💬 Chat"]
-        Deploy["🚀 Deploy"]
-        Knowledge["📚 Knowledge"]
+graph TB
+    subgraph "🌐 Frontend (Next.js 14)"
+        UI[Dashboard]
+        Analyze[Analyze]
+        Chat[Chat]
+        Deploy[Deploy]
+        Knowledge[Knowledge]
     end
-
-    subgraph Backend["⚙️ Backend (FastAPI)"]
-        API["REST API"]
-        WS["WebSocket"]
+    
+    subgraph "⚙️ Backend (FastAPI)"
+        API[REST API]
+        WS[WebSocket]
         
-        subgraph Agents["🤖 Ajanlar"]
-            Auditor["🕵️ Auditor"]
-            Sniper["🎯 Sniper"]
-            ChatAgent["💬 ChatAgent"]
-            OpsAgent["🔧 OpsAgent"]
-            Recovery["🔄 RecoveryEngine"]
-        end
-        
-        subgraph Services["🔌 Servisler"]
-            MemoryCore["🧠 MemoryCore"]
-            SSH["🔐 SSH Manager"]
-            Orchestrator["🎭 Orchestrator"]
+        subgraph "🤖 Ajanlar"
+            Auditor[👨‍⚖️ Auditor]
+            Architect[🏗️ Architect]
+            Sniper[🎯 Sniper]
+            ChatAgent[💬 Chat]
+            OpsAgent[🔧 Ops]
+            Recovery[🔄 Recovery]
         end
     end
-
-    subgraph Storage["💾 Veri Katmanı"]
-        direction LR
-        SQLite["📁 SQLite (Local)"]
-        Supabase["☁️ Supabase (Cloud)"]
-        ChromaDB["🔮 ChromaDB (RAG)"]
-    end
-
-    subgraph External["🌐 Dış Servisler"]
-        IONet["io.net API"]
-        DeepSeek["DeepSeek AI"]
-        GPU["GPU Nodes"]
-    end
-
-    Frontend --> API
-    Frontend --> WS
-    API --> Agents
-    Agents --> Services
-    Services --> Storage
-    Services --> External
     
-    style MemoryCore fill:#9333ea,color:#fff
-    style OpsAgent fill:#9333ea,color:#fff
-    style Knowledge fill:#9333ea,color:#fff
+    subgraph "💾 Veri Katmanı"
+        DB[(SQLite/Supabase)]
+        Vector[(ChromaDB/pgvector)]
+    end
+    
+    subgraph "🌍 Dış Servisler"
+        IONet[io.net GPU Network]
+        AI[DeepSeek AI]
+    end
+    
+    UI --> API
+    API --> Auditor
+    Auditor --> Architect
+    Architect --> Sniper
+    Sniper --> IONet
+    ChatAgent --> AI
+    OpsAgent --> Vector
+    API --> DB
+```
+
+### 📊 Ajan Pipeline
+
+```
+📝 Python Kodu
+    ↓
+👨‍⚖️ Auditor (Kod Analizi)
+    ├─ Framework: PyTorch
+    ├─ VRAM: 16GB
+    └─ Health Score: 92/100
+    ↓
+🏗️ Architect (Ortam Planlama)
+    ├─ Base Image: pytorch:2.1-cuda12.1
+    ├─ Python: 3.10
+    └─ Dependencies: transformers, torch
+    ↓
+🎯 Sniper (Piyasa Arbitrajı)
+    ├─ GPU Tarama: 47 node
+    ├─ Fiyat Analizi: $1.20-$2.80/h
+    └─ Seçim: A100 @ $1.45/h (Frankfurt)
+    ↓
+🚀 Deploy Ready!
 ```
 
 ---
 
-## 🚀 Temel Özellikler
+## 🤖 Ajan Sistemi
 
-Sistem, DePIN (Merkeziyetsiz Fiziksel Altyapı) ağlarında **gerçek** işlemler yapabilme yeteneğine sahiptir:
+### Ajan Detayları
 
-1.  **Omurga (The Backbone):** Supabase destekli veritabanı ile tüm sohbetler, iş geçmişi ve piyasa verileri kalıcı olarak saklanır.
-2.  **Gerçek Gözler (Real Eyes):** `api.io.solutions` entegrasyonu ile **canlı GPU piyasasını** (Fiyat, Stok, Kiralama Durumu) anlık takip eder.
-3.  **Güvenli El (Secure Hand):** SSH anahtarlarınızı şifreli saklar ve kiraladığınız sunuculara `Paramiko` kütüphanesi ile güvenli tünel açar.
-4.  **Akıllı Ajanlar:** DeepSeek-V3 destekli ajanlar kodunuzu analiz eder ve en uygun donanımı önerir.
+<table>
+<tr>
+<th>Ajan</th>
+<th>Görev</th>
+<th>Teknoloji</th>
+<th>Çıktı</th>
+</tr>
+<tr>
+<td><b>👨‍⚖️ Auditor</b></td>
+<td>Kod sağlığı analizi</td>
+<td>AST + LLM</td>
+<td>
 
-### 🌟 v1.5 "Sentinel Intelligence" (Yeni!)
-
-Modüler **RAG (Retrieval-Augmented Generation)** ve **Agentic** mimari:
-
-```mermaid
-flowchart LR
-    subgraph Upload["📤 Bilgi Yükleme"]
-        PDF["PDF Dosyası"]
-        TXT["TXT Dosyası"]
-    end
-    
-    subgraph Processing["⚙️ İşleme"]
-        Extract["Metin Çıkar"]
-        Chunk["500 char Parçala"]
-        Embed["Embedding Oluştur"]
-    end
-    
-    subgraph Storage["💾 Vektör DB"]
-        ChromaDB2["ChromaDB (Local)"]
-        Supabase2["Supabase pgvector (Cloud)"]
-    end
-    
-    subgraph Search["🔍 Arama"]
-        Query["Kullanıcı Sorusu"]
-        VectorSearch["Semantik Arama"]
-        Results["RAG Sonuçları"]
-    end
-
-    PDF --> Extract
-    TXT --> Extract
-    Extract --> Chunk
-    Chunk --> Embed
-    Embed --> ChromaDB2
-    Embed --> Supabase2
-    
-    Query --> VectorSearch
-    VectorSearch --> Results
-    
-    style ChromaDB2 fill:#9333ea,color:#fff
-    style Supabase2 fill:#9333ea,color:#fff
+```json
+{
+  "framework": "PyTorch",
+  "vram_min_gb": 16,
+  "health_score": 92
+}
 ```
 
-| Yeni Özellik | Açıklama |
-|--------------|----------|
-| 🧠 **Hibrit RAG Hafızası** | ChromaDB (local) veya Supabase pgvector (cloud) otomatik seçim |
-| 📄 **Bilgi Yükleme** | PDF/TXT dosyalarınızı yükleyerek AI'ı eğitin |
-| 🔧 **OpsAgent** | Tool Use ile aksiyon alan ajan (bakiye sorgula, job durdur) |
-| 🔄 **Self-Healing** | Bilinmeyen hatalar için RAG'dan çözüm önerisi |
-| 📚 **Knowledge UI** | Drag & drop dosya yükleme arayüzü |
-| 📊 **Canlı Pipeline** | Analiz adımlarını (Auditor/Sniper) WebSocket ile anlık izleme |
+</td>
+</tr>
+<tr>
+<td><b>🏗️ Architect</b></td>
+<td>Ortam mühendisliği</td>
+<td>Docker + CUDA</td>
+<td>
 
-**Embedding Modeli:** `sentence-transformers/all-MiniLM-L6-v2` (Yerel, ücretsiz, API gerektirmez)
+```json
+{
+  "base_image": "pytorch:2.1",
+  "cuda_version": "12.1",
+  "packages": ["torch"]
+}
+```
 
-### 🌟 v1.4 Yükseltmesi
+</td>
+</tr>
+<tr>
+<td><b>🎯 Sniper</b></td>
+<td>Piyasa arbitrajı</td>
+<td>io.net API</td>
+<td>
 
-Kullanıcı deneyimi (UX) ve görsel tasarım tamamen yenilendi:
+```json
+{
+  "gpu_model": "A100",
+  "cost_hourly": 1.45,
+  "location": "Frankfurt"
+}
+```
 
--   **Modern Chat Arayüzü:** Tam ekran, glassmorphism efektli ve animasyonlu yeni sohbet deneyimi.
--   **Zengin Metin Formatlama:** Sohbet mesajlarında **Kalın yazı** ve `Kod Blokları` (sözdizimi vurgulama ile) desteği.
--   **Akıllı Sabitleme (Smart Anchoring):** Chat input alanı artık ekrana sabitlendi, uzun sohbetlerde sayfa kaydırma sorunu çözüldü.
--   **UX İyileştirmeleri:** Daha akıcı geçişler ve bilgilendirici yükleme ekranları.
-
-### 🌟 v1.3 Yükseltmesi
-
-Sistem artık çok daha yetenekli ve akıllı:
-
--   **Oturum Kalıcılığı (Persistence):** Tarayıcıyı kapatsanız bile analiz işlemleriniz arka planda devam eder. Geri döndüğünüzde kaldığınız yerden devam edersiniz.
--   **Multi-Model Chat:** Sohbet ederken **DeepSeek-V3**, **DeepSeek-R1**, **Llama 3.3**, **Qwen2.5** gibi farklı yapay zeka modelleri arasından seçim yapabilirsiniz.
--   **Akıllı Veritabanı (Auto-Healing DB):** Sistem, yerel veritabanınızın şemasını otomatik kontrol eder ve eksik tabloları/kolonları (örn: `metadata`) kendini onararak ekler.
--   **Gelişmiş Wizard:** Canlı Dashboard (VRAM, GPU, Sağlık Skoru), oturum kurtarma ve görsel onay mekanizmaları eklendi.
--   **Hibrit Mimari (Hybrid Core):** Veritabanı katmanı artık hem **Local (SQLite)** hem de **Cloud (Supabase)** modlarında çalışabilir. İnternet bağlantınız kopsa bile yerel veritabanı ile çalışmaya devam edersiniz.
-
-## 🛡️ Güvenlik ve Kimlik Doğrulama
-Sistem, uçtan uca güvenli bir yapı üzerine kuruludur:
-*   **JWT Auth:** Frontend ve Backend arasındaki tüm iletişim (Analyze, Chat, Deploy) **JWT Token** ile şifrelenir.
-*   **Supabase Entegrasyonu:** Cloud modunda, Supabase'in güvenli auth altyapısını kullanır.
-*   **SSH Tunneling:** GPU sunucularına yapılan bağlantılar şifreli tüneller üzerinden gerçekleşir.
-*   **Çoklu Kullanıcı İzolasyonu:** Her kullanıcı sadece kendi dokümanlarını görebilir (RLS).
-
-## 🧠 Çekirdek Ajanlar (Backend)
-
-| Ajan | Rol | İşlev |
-| :--- | :--- | :--- |
-| **🕵️ Auditor** | Statik Analiz | Kodunuzu okur, kütüphane ve VRAM gereksinimlerini belirler. |
-| **🎯 Sniper** | Piyasa Arbitrajı | Canlı API verisiyle `Skor = (Fiyat/Performans) + Güvenilirlik` analizi yapar. |
-| **🔐 Connector** | Güvenli Bağlantı | SSH Tünelleme ve sunucu sağlığı (uptime) kontrolü sağlar. |
-| **🤖 ChatAgent** | Genel Zeka | Teknik destek veren, veritabanı hafızalı sohbet botu. |
-| **🔧 OpsAgent** | Tool Use | Bakiye sorgula, RAG ara, job durdur gibi aksiyonlar alır. |
-| **🔄 RecoveryEngine** | Self-Healing | Hatalar için RAG'dan çözüm önerir. |
-
-## 💻 Arayüz (Frontend)
-
-**Next.js 14**, **Tailwind CSS** ve **Shadcn/UI** ile geliştirilmiş modern bir konsol:
-
--   **Dashboard:** Canlı piyasa verileri (Fiyatlar, Doluluk Oranları) ve sistem sağlığı.
--   **Analyze:** Kodunuzu yapıştırın, Ajanlar analiz etsin.
--   **Deploy:** İster simülasyon yapın, ister **SSH Anahtarı** ekleyerek gerçek sunucunuza bağlanın.
--   **Chat:** Asistan ile konuşun, geçmiş konuşmalarınızı kaybetmeyin.
--   **Knowledge:** PDF/TXT dosyaları yükleyerek AI'ı eğitin.
+</td>
+</tr>
+<tr>
+<td><b>💬 ChatAgent</b></td>
+<td>Genel destek</td>
+<td>DeepSeek-V3</td>
+<td>Teknik danışmanlık</td>
+</tr>
+<tr>
+<td><b>🔧 OpsAgent</b></td>
+<td>Sistem kontrolü</td>
+<td>Tool Use</td>
+<td>Bakiye, job yönetimi</td>
+</tr>
+<tr>
+<td><b>🔄 Recovery</b></td>
+<td>Hata çözümü</td>
+<td>RAG + AI</td>
+<td>Self-healing stratejileri</td>
+</tr>
+</table>
 
 ---
 
-## ⚡ Kurulum ve Çalıştırma
+## 📚 Kullanım Örnekleri
 
-### Gereksinimler
--   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
--   Git
--   Supabase Hesabı (Veritabanı için)
+### Örnek 1: PyTorch Model Analizi
 
-### Adım Adım Kurulum
+```python
+# train.py
+import torch
+import torch.nn as nn
 
-1.  **Depoyu Klonlayın**
-    ```bash
-    git clone https://github.com/aliozen0/sentinel-io.git
-    cd io-guard
-    ```
+model = nn.Sequential(
+    nn.Linear(768, 1024),
+    nn.ReLU(),
+    nn.Linear(1024, 10)
+)
 
-2.  **Ortam Değişkenleri**
-    `.env.example` dosyasını `.env` olarak kopyalayın ve Supabase bilgilerinizi girin:
-    ```bash
-    cp .env.example .env
-    # .env dosyasını açıp SUPABASE_URL, SUPABASE_KEY ve SUPABASE_JWT_SECRET alanlarını doldurun.
-    # Not: SUPABASE_JWT_SECRET anahtarınızı Supabase Panel -> Project Settings -> API -> JWT Settings altından alabilirsiniz.
-    ```
+# io-Guard Analyze sayfasına yükleyin
+# Bütçe: $50
+# Model: DeepSeek-V3
+```
 
-3.  **Sistemi Başlatın**
-    Tüm servisleri (Backend & Frontend) ayağa kaldırın:
-    ```bash
-    docker-compose up --build
-    ```
+**Auditor Çıktısı:**
+```
+✅ Framework: PyTorch 2.0+
+✅ VRAM: ~4GB (Tahmini)
+✅ Dependencies: torch, numpy
+⚠️  Öneri: Batch size 32 → 16 optimize edilebilir
+```
 
-4.  **Veritabanı Kurulumu**
-    Supabase SQL Editöründe `backend/db/schema.sql` dosyasındaki tabloları oluşturun (`chat_messages`, `jobs`, `ssh_keys`).
+**Sniper Önerisi:**
+```
+🎯 Best Match: RTX 4090 @ $0.89/h
+📍 Location: Frankfurt, DE
+⏱️  Latency: 18ms
+💰 Maliyet: ~$42.72 (48h)
+✅ Bütçe içinde!
+```
 
-5.  **Erişim**
-    -   **Frontend:** [http://localhost:3000](http://localhost:3000)
-    -   **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs)
+### Örnek 2: RAG ile Hata Çözümü
+
+```python
+# Deployment hatası:
+# CUDA out of memory
+
+# RecoveryEngine devreye girer:
+```
+
+**RAG Çözümü:**
+```
+🔍 Benzer hata bulundu (Similarity: 0.94)
+📄 Kaynak: cuda_optimization.pdf, Sayfa 23
+
+💡 Önerilen çözümler:
+1. Batch size'ı 32 → 16'ya düşür
+2. torch.cuda.empty_cache() ekle
+3. Gradient accumulation kullan (4 steps)
+
+✅ Otomatik düzeltme uygulanıyor...
+```
+
+### Örnek 3: Multi-Model Chat
+
+```
+Kullanıcı: "VRAM gereksinimimi nasıl azaltırım?"
+
+ChatAgent (DeepSeek-V3):
+"Birkaç yöntem var:
+
+1. **Model Quantization:** FP32 → FP16 veya INT8
+   - `model.half()` ile %50 VRAM tasarrufu
+   
+2. **Gradient Checkpointing:**
+   - `model.gradient_checkpointing_enable()`
+   - Training'de %30-40 tasarruf
+   
+3. **Batch Size Azaltma:**
+   - 32 → 16 → 8 test edin
+   
+4. **LoRA Fine-tuning:**
+   - Tüm model yerine sadece adaptör eğit
+   
+Hangi yöntemi denemek istersin?"
+```
 
 ---
 
-## 🎮 Demo Modu: Mock GPU Server ile Test
+## 🛡️ Güvenlik
 
-io-Guard, gerçek GPU sunucularına bağlanmadan önce sistemi test edebilmeniz için **otomatik mock GPU server** sağlar. Tüm işlemleri **tamamen arayüzden** yapabilirsiniz - terminal komutlarına gerek yok!
+### Zero-Trust Mimarisi
 
-### Demo Credentials Nasıl Alınır?
+| Katman | Tehdit | Önlem | Teknoloji |
+|--------|--------|-------|-----------|
+| **Ağ** | Man-in-the-Middle | End-to-End Şifreleme | SSHv2 (AES-256) |
+| **Veri** | DB Sızıntısı | Ephemeral Credentials | RAM-only storage |
+| **API** | Brute Force | Rate Limiting | FastAPI Middleware |
+| **Kimlik** | Token Hırsızlığı | JWT Rotation | Short-lived tokens |
 
-1. **Frontend'i Açın:** [http://localhost:3000/deploy](http://localhost:3000/deploy)
+### SSH Güvenliği
 
-2. **Live Mode Seçin:** "Live Mode ⚡" kartına tıklayın
+**Desteklenen Yöntemler:**
+- 🔑 Private Key (RSA, Ed25519, ECDSA, DSA)
+- 🔐 Password Authentication
+- 🔒 Passphrase-Protected Keys
 
-3. **Demo Credentials Alın:**
-   - **"🎮 Get Demo Server Credentials"** butonuna tıklayın
-   - Açılan modal'da mock GPU server bilgilerini göreceksiniz:
-     - **Hostname:** `mock-gpu-node`
-     - **Port:** `22`
-     - **Username:** `root`
-     - **Private Key:** ✅ Otomatik yüklenir
-
-4. **Otomatik Doldurma:**
-   - **"✨ Auto-Fill Connection"** butonuna tıklayın
-   - SSH bağlantı formu otomatik olarak dolar!
-
-5. **Bağlantı Testi:**
-   - **"Test Connection"** butonuna tıklayın
-   - Bağlantı başarılıysa ✅ indicator görünür
-
-6. **Kaydet ve Deploy:**
-   - **"✓ Save & Close"** ile bağlantıyı kaydedin
-   - Artık **"Initialise Deployment"** ile deployment başlatabilirsiniz!
-
-### Alternatif: API ile Demo Credentials
-
-Eğer manuel olarak almak isterseniz:
-
-```bash
-# Connection bilgileri
-curl http://localhost:8000/v1/connections/demo
-
-# Private key
-curl http://localhost:8000/v1/connections/demo/key
-```
-
-### Demo Server Özellikleri
-
-- ✅ **Gerçek SSH Server:** Docker container içinde çalışan gerçek bir Linux sunucusu
-- ✅ **Güvenli Test Ortamı:** Gerçek deployment akışını deneyimleyin
-- ✅ **Tam Entegrasyon:** Live deployment ile aynı workflow
-- ✅ **Sıfır Konfigürasyon:** Docker Compose ile otomatik başlar
-
-### 🔐 Desteklenen SSH Bağlantı Yöntemleri
-
-io-Guard, yaygın kullanılan tüm SSH kimlik doğrulama yöntemlerini destekler:
-
-| Yöntem | Açıklama | Kullanım |
-|--------|----------|----------|
-| 🔑 **SSH Private Key** | RSA, Ed25519, ECDSA, DSA formatları | Standart key-based authentication |
-| 🔐 **Password** | Parola ile giriş | Key kullanmayan sunucular için |
-| 🔒 **Passphrase-protected Key** | Şifreli private key | Ekstra güvenlik katmanı |
-
-**Bağlantı formunda:**
-1. "SSH Key" veya "Password" seçin
-2. Key kullanıyorsanız ve şifreliyse, "Passphrase" alanını doldurun
-3. "Test Connection" ile doğrulayın
+**Güvenlik Prensipleri:**
+1. SSH key'ler **asla** veritabanına kaydedilmez
+2. Sadece işlem süresince **RAM'de** tutulur
+3. İşlem bitince güvenli şekilde **silinir** (wipe)
+4. Tüm bağlantılar **şifreli tünel** üzerinden
 
 ---
 
-## � Live Deployment: Dosya Yükleme ve Uzaktan Çalıştırma
+## 📖 Teknik Dokümantasyon
 
-io-Guard, Python scriptlerinizi uzaktaki GPU sunucusuna yükleyip **gerçek zamanlı** çalıştırmanızı sağlar.
+Detaylı mimari ve implementasyon bilgileri için:
 
-### Nasıl Çalışır?
+📄 **[io-Guard Technical Whitepaper v1.0](https://github.com/aliozen0/sentinel-io/blob/main/io-guard-technical-whitepaper-v1.pdf)**
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Frontend   │────▶│   Backend   │────▶│  GPU Node   │
-│  (Browser)  │     │  (FastAPI)  │     │   (SSH)     │
-└─────────────┘     └─────────────┘     └─────────────┘
-     │                    │                    │
-     │ 1. Dosya Seç       │                    │
-     │ 2. Upload          │                    │
-     │──────────────────▶ │ 3. SFTP Transfer   │
-     │                    │──────────────────▶ │
-     │                    │ 4. python3 script  │
-     │                    │──────────────────▶ │
-     │ 5. Canlı Loglar    │ ◀────────────────  │
-     │ ◀───WebSocket───── │                    │
-     └────────────────────┴────────────────────┘
-```
-
-### Adım Adım Kullanım
-
-1. **Deploy Sayfasını Açın:** [http://localhost:3000/deploy](http://localhost:3000/deploy)
-
-2. **Sunucuya Bağlanın:**
-   - 🎮 **Demo için:** "Get Demo Server Credentials" → "Fill Connection Form" → "Test Connection" → "Save"
-   - 🔑 **Gerçek sunucu için:** "Add Remote Server" → SSH bilgilerinizi girin
-
-3. **Script Yükleyin:**
-   - Python dosyanızı seçin (.py)
-   - "Upload" butonuna tıklayın
-
-4. **Çalıştırın:**
-   - "Execute on Server" butonuna tıklayın
-   - Terminal'de **canlı** output izleyin!
-
-### Örnek Çıktı
-
-```
-🚀 STARTING REMOTE EXECUTION
-══════════════════════════════════════════════════
-📋 Job ID: exec_a12ca913
-📁 Preparing to upload: gpu_test.py
-✅ File uploaded successfully (1178 bytes)
-📍 Remote path: /tmp/gpu_test.py
-🔌 Connecting to mock-gpu-node:22...
-✅ Connected as root
-🚀 Executing: python3 /tmp/gpu_test.py
-──────────────────────────────────────────────────
-[TEST] Starting GPU Burn Test...
-[TEST] Epoch 1/5: Loss=1.29 | Accuracy=21.3%
-[TEST] Epoch 2/5: Loss=0.80 | Accuracy=41.3%
-[TEST] Epoch 5/5: Loss=0.32 | Accuracy=98.1%
-[TEST] ✅ Job Completed Successfully.
-──────────────────────────────────────────────────
-✅ Command completed successfully (exit code: 0)
-🧹 Cleaning up remote file...
-✅ Cleanup complete
-══════════════════════════════════════════════════
-```
-
-### Gerçek Sunucuya Bağlanma
-
-Demo'daki akış, gerçek bir io.net GPU node'una veya herhangi bir SSH erişimli sunucuya **aynı şekilde** çalışır:
-
-| Özellik | Demo (Mock) | Gerçek Sunucu |
-|---------|-------------|---------------|
-| SSH Bağlantısı | ✅ | ✅ |
-| SFTP Dosya Transferi | ✅ | ✅ |
-| Uzaktan Kod Çalıştırma | ✅ | ✅ |
-| Canlı Log Streaming | ✅ | ✅ |
+**İçerik:**
+- Sistem mimarisi detayları
+- Ajan karar ağaçları
+- Veri modeli ve şema
+- Güvenlik protokolleri
+- API spesifikasyonları
+- Deployment stratejileri
 
 ---
 
-## 📂 Proje Yapısı
+## 🗺️ Yol Haritası
 
-```
-io-guard/
-├── backend/                    # Python FastAPI (Beyin)
-│   ├── agents/                 # Ajanlar
-│   │   ├── auditor.py          # Kod analizi
-│   │   ├── sniper.py           # Piyasa arbitrajı
-│   │   ├── chat.py             # Sohbet ajanı
-│   │   ├── chat_ops.py         # 🆕 Tool Use ajanı
-│   │   └── recovery_engine.py  # 🔄 Self-healing + RAG
-│   ├── db/                     # Veritabanı
-│   │   ├── client.py           # Hibrit DB istemcisi
-│   │   └── schema.sql          # SQLite şeması
-│   ├── routes/                 # API Router'ları
-│   │   ├── knowledge.py        # 🆕 RAG endpoint'leri
-│   │   └── auth_routes.py      # Kimlik doğrulama
-│   ├── services/               # Servisler
-│   │   ├── memory_core.py      # 🆕 Hibrit RAG hafızası
-│   │   ├── ssh_manager.py      # SSH bağlantıları
-│   │   └── orchestrator.py     # Ajan orkestratörü
-│   ├── migrations/             # Veritabanı migrations
-│   │   └── 003_documents_pgvector.sql  # 🆕 Supabase RAG tablosu
-│   └── main.py                 # API Endpoint'leri
-├── frontend/                   # Next.js 14 (Arayüz)
-│   ├── app/
-│   │   ├── knowledge/          # 🆕 Bilgi yükleme sayfası
-│   │   ├── chat/               # Sohbet
-│   │   ├── deploy/             # Deployment
-│   │   └── analyze/            # Kod analizi
-│   └── components/             # UI Bileşenleri
-└── docker-compose.yml          # Orkestrasyon
-```
+### ✅ Tamamlanan (v1.5)
 
-## 🔮 Yol Haritası (Roadmap)
+- [x] Supabase bulut entegrasyonu
+- [x] Canlı piyasa verisi (io.net API)
+- [x] SSH güvenli bağlantı
+- [x] Remote code execution
+- [x] RAG hafıza sistemi
+- [x] Tool Use agent (OpsAgent)
+- [x] Self-healing mekanizması
+- [x] Multi-model chat
 
--   [x] **Adım 1: Veri Omurgası** (Supabase Entegrasyonu) ✅
--   [x] **Adım 2: Gerçek Piyasa** (Canlı API Verisi) ✅
--   [x] **Adım 3: Güvenli Bağlantı** (SSH & Paramiko) ✅
--   [x] **Adım 4: Dosya Transferi** (Script Upload & Wget) ✅
--   [x] **Adım 5: Canlı Yürütme** (Remote SSH Execution) ✅
--   [x] **Adım 6: Otonom Kurtarma** (AI-Powered Error Recovery) ✅
--   [x] **Adım 7: Demo Credentials UI** (Frontend Auto-Fill) ✅
--   [x] **Adım 8: RAG Hafızası** (Hibrit Vektör DB) ✅ 🆕
--   [x] **Adım 9: Bilgi Yükleme** (PDF/TXT Ingestion) ✅ 🆕
--   [x] **Adım 10: OpsAgent** (Tool Use Ajanı) ✅ 🆕
--   [x] **Adım 11: Self-Healing RAG** (Bilinmeyen Hatalar için) ✅ 🆕
+### 🔄 Geliştirme Aşamasında (v2.0)
 
+- [ ] **Multi-Cloud Support:** AWS Spot, RunPod, Akash
+- [ ] **AMD GPU Desteği:** ROCm stack entegrasyonu
+- [ ] **WebRTC Protocol:** Düşük gecikmeli streaming
+- [ ] **Auto-Scaling:** Dinamik kaynak yönetimi
+- [ ] **Cost Analytics Dashboard:** Detaylı maliyet raporları
+- [ ] **Team Collaboration:** Paylaşımlı workspace'ler
+
+### 🔮 Gelecek Vizyon (v3.0+)
+
+- [ ] **Multi-Language Support:** Node.js, Go, Rust analizi
+- [ ] **Kubernetes Orchestration:** K8s cluster yönetimi
+- [ ] **ML Model Registry:** Pre-trained model marketplace
+- [ ] **Blockchain Integration:** Akıllı kontrat tabanlı ödeme
+
+---
+
+## 💬 Destek
+
+### 📞 İletişim
+
+- 🐛 **Bug Report:** [GitHub Issues](https://github.com/aliozen0/sentinel-io/issues)
+- 💡 **Feature Request:** [GitHub Discussions](https://github.com/aliozen0/sentinel-io/discussions)
+- 📧 **Email:** [GitHub Profile](https://github.com/aliozen0)
+
+### 📚 Kaynaklar
+
+- **Canlı Demo:** https://sentinel-io-guard.vercel.app/
+- **API Dokümantasyonu:** https://sentinel-io.onrender.com/docs
+- **Teknik Whitepaper:** [PDF](https://github.com/aliozen0/sentinel-io/blob/main/io-guard-technical-whitepaper-v1.pdf)
+
+### 🤝 Katkıda Bulunma
+
+Katkılarınızı bekliyoruz! Lütfen:
+
+1. Projeyi fork edin
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Değişikliklerinizi commit edin (`git commit -m 'Add amazing feature'`)
+4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
+5. Pull Request açın
 
 ---
 
 ## 📄 Lisans
 
-Bu proje MIT Lisansı altında lisanslanmıştır.
+Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
+
+---
+
+<div align="center">
+
+**⭐ Projeyi beğendiyseniz yıldız vermeyi unutmayın!**
+
+Made with ❤️ by [Ali Özen](https://github.com/aliozen0)
+
+</div>
