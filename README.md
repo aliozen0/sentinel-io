@@ -11,7 +11,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Live Demo](https://img.shields.io/badge/demo-online-success?logo=vercel)](https://sentinel-io-guard.vercel.app/)
 
-[🚀 Hızlı Başlangıç](#-hızlı-başlangıç) • [📖 Dokümantasyon](#-teknik-dokümantasyon) • [🎮 Demo](#-canlı-demo) • [💬 Destek](#-destek)
+[🚀 Hızlı Başlangıç](#-hızlı-başlangıç) • [📖 Dokümantasyon](#-teknik-dokümantasyon) • [🎮 Canlı Demo](https://sentinel-io-guard.vercel.app/) • [💬 Destek](#-destek)
 
 </div>
 
@@ -217,7 +217,7 @@ IO_BASE_URL="https://api.intelligence.io.solutions/api/v1/"
 IO_MODEL_NAME="deepseek-ai/DeepSeek-V3.2"
 ```
 
-> ⚠️ **Uyarı:** Container yeniden başlatıldığında veriler kaybolur.
+> ✅ **Bilgi:** Veriler yerel veritabanı dosyasında saklanır ve kalıcıdır.
 
 ---
 
@@ -236,11 +236,10 @@ Yerel kurulum yapmadan denemek için:
 Gerçek GPU sunucularına bağlanmadan sistemi test edin:
 
 1. **Deploy Sayfası:** http://localhost:3000/deploy
-2. **"Live Mode ⚡"** seçin
-3. **"🎮 Get Demo Server Credentials"** tıklayın
-4. **"✨ Auto-Fill Connection"** ile formu doldurun
-5. **"Test Connection"** ile doğrulayın
-6. Artık kod çalıştırabilirsiniz!
+2. **"🎮 Get Demo Server Credentials"** tıklayın
+3. **"✨ Auto-Fill Connection"** ile formu doldurun
+4. **"Test Connection"** ile doğrulayın
+5. Artık kod çalıştırabilirsiniz!
 
 **Demo server özellikleri:**
 - ✅ Gerçek SSH protokolü
@@ -596,6 +595,6 @@ Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
 
 **⭐ Projeyi beğendiyseniz yıldız vermeyi unutmayın!**
 
-Made with ❤️ by [Ali Özen](https://github.com/aliozen0)
+Made with by [Ali Özen](https://github.com/aliozen0)
 
 </div>
