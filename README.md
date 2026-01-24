@@ -20,7 +20,7 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![io.net](https://img.shields.io/badge/io.net-DePIN-blue?style=for-the-badge)
-![DeepSeek](https://img.shields.io/badge/DeepSeek-LLM-blueviolet?style=for-the-badge)
+![RAG](https://img.shields.io/badge/RAG-Pipeline-orange?style=for-the-badge)
 
 [🚀 Hızlı Başlangıç](#-hızlı-başlangıç) • [📖 Dokümantasyon](#-teknik-dokümantasyon) • [🎮 Canlı Demo](https://sentinel-io-guard.vercel.app/) • [💬 Destek](#-destek)
 
