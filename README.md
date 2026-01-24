@@ -128,7 +128,7 @@ cd sentinel-io
 cp .env.example .env
 
 # ÖNEMLİ: Supabase kullanacaksanız bilgileri girin.
-# SQLite (yerel mod) için hiçbir değişiklik yapmanıza gerek yoktur.
+# SQLite (yerel mod) için **Supabase** ile ilgili kısımları silin.
 nano .env
 
 # 3️⃣ Sistemi başlatın
