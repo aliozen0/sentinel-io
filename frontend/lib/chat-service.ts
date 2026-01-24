@@ -57,12 +57,17 @@ export const sendChatMessage = async (
             content: m.content
         }))
 
+        const token = localStorage.getItem("token")
+        const headers: any = {
+            'Content-Type': 'application/json'
+        }
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`
+        }
+
         const res = await fetch(`${API_URL}/v1/chat`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // Add Authorization header if needed, assuming cookie-based or handled elsewhere
-            },
+            headers: headers,
             body: JSON.stringify({
                 messages: messages,
                 model: model
